@@ -1,0 +1,32 @@
+node_modules
+dist
+.DS_Store
+*.log
+
+# Secrets / credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.cer
+*.crt
+*.jks
+
+# Personal or sensitive data files
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.csv
+*.pdf
+*.sql
+*.bak
+
+# Sensitive local assets (keep local only)
+logo.jpg
+public/logo.jpg
+評點製_人事資料表.docx
+public/評點製_人事資料表.docx

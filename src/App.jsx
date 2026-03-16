@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import EditMode from './components/EditMode';
 import NoticeBanner from './components/NoticeBanner';
 import PreviewMode from './components/PreviewMode';
 import ResumeStyles from './components/ResumeStyles';
 import TopNav from './components/TopNav';
+import {
+  isFirebaseAuthConfigured,
+  loginWithGoogle,
+  logoutAuthUser,
+  subscribeAuthUser,
+} from './modules/authClient';
 
 import {
   initialData,
@@ -36,8 +42,12 @@ const ResumeBuilder = () => {
   const [mode, setMode] = useState('edit');
   const [validationErrors, setValidationErrors] = useState([]);
   const [isExportingWord, setIsExportingWord] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [activeErrorField, setActiveErrorField] = useState('');
   const [notice, setNotice] = useState(null);
+  const [authUser, setAuthUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [isAuthBusy, setIsAuthBusy] = useState(false);
 
   const clearValidationErrors = () => {
     if (validationErrors.length > 0 || activeErrorField) {
@@ -51,6 +61,46 @@ const ResumeBuilder = () => {
 
   const showNotice = (message, type = 'info') => {
     setNotice({ message, type });
+  };
+
+  useEffect(() => {
+    const unsubscribe = subscribeAuthUser((user) => {
+      setAuthUser(user || null);
+      setAuthReady(true);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    if (!isFirebaseAuthConfigured()) {
+      showNotice('尚未設定 Firebase 登入，請先設定環境變數。', 'error');
+      return;
+    }
+
+    setIsAuthBusy(true);
+    try {
+      await loginWithGoogle();
+      showNotice('登入成功，現在可以送出履歷寄送。', 'info');
+    } catch (error) {
+      console.error('Login failed:', error);
+      showNotice('登入失敗，請稍後再試。', 'error');
+    } finally {
+      setIsAuthBusy(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setIsAuthBusy(true);
+    try {
+      await logoutAuthUser();
+      showNotice('已登出。', 'info');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      showNotice('登出失敗，請稍後再試。', 'error');
+    } finally {
+      setIsAuthBusy(false);
+    }
   };
 
   const focusField = (fieldKey) => {
@@ -281,9 +331,7 @@ const ResumeBuilder = () => {
   // -------------------------------------------------------------
   // Word 匯出核心
   // -------------------------------------------------------------
-  const exportToWordLegacy = async (skipValidation = false) => {
-    if (!skipValidation && !ensureValidBeforeAction('匯出 Word')) return;
-
+  const buildLegacyWordBlob = async () => {
     const checked = '&#9745;';
     const unchecked = '&#9744;';
     const getCb = (condition) => condition ? checked : unchecked;
@@ -447,15 +495,77 @@ const ResumeBuilder = () => {
       </html>
     `;
 
-    const blob = new Blob(['\ufeff', wordHTML], { type: 'application/msword;charset=utf-8' });
+    return new Blob(['\ufeff', wordHTML], { type: 'application/msword;charset=utf-8' });
+  };
+
+  const downloadBlob = (blob, filename) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = getExportFilename(data.name, data.fillDate);
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const exportToWordLegacy = async (skipValidation = false) => {
+    if (!skipValidation && !ensureValidBeforeAction('匯出 Word')) return;
+
+    const blob = await buildLegacyWordBlob();
+    downloadBlob(blob, getExportFilename(data.name, data.fillDate));
+  };
+
+  const buildTemplateWordBlob = async () => {
+    const JSZip = await loadJSZipModule();
+
+    const templateCandidates = getWordTemplateCandidates();
+    let templateBuffer = null;
+
+    for (const candidateUrl of templateCandidates) {
+      try {
+        const response = await fetch(candidateUrl, { cache: 'no-store' });
+        if (response.ok) {
+          templateBuffer = await response.arrayBuffer();
+          break;
+        }
+      } catch (error) {
+        // continue trying other candidates
+      }
+    }
+
+    if (!templateBuffer) {
+      throw new Error(`找不到模板檔案：${WORD_TEMPLATE_FILENAME}`);
+    }
+
+    const zip = await JSZip.loadAsync(templateBuffer);
+    const documentXmlFile = zip.file('word/document.xml');
+
+    if (!documentXmlFile) {
+      throw new Error('模板缺少 word/document.xml');
+    }
+
+    let photoRelationshipId = '';
+    if (data.photoDataUrl) {
+      photoRelationshipId = await injectPhotoIntoWordZip(zip, data.photoDataUrl);
+    }
+
+    const documentXml = await documentXmlFile.async('string');
+    const xmlDocument = new DOMParser().parseFromString(documentXml, 'application/xml');
+    const parserError = xmlDocument.getElementsByTagName('parsererror')[0];
+    if (parserError) {
+      throw new Error('模板 XML 解析失敗');
+    }
+
+    fillResumeTemplateXml(xmlDocument, data, { photoRelationshipId });
+
+    const serializedXml = new XMLSerializer().serializeToString(xmlDocument);
+    zip.file('word/document.xml', serializedXml);
+
+    return zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
   };
 
   const exportToWord = async () => {
@@ -465,69 +575,102 @@ const ResumeBuilder = () => {
     setIsExportingWord(true);
 
     try {
-      const JSZip = await loadJSZipModule();
-
-      const templateCandidates = getWordTemplateCandidates();
-      let templateBuffer = null;
-
-      for (const candidateUrl of templateCandidates) {
-        try {
-          const response = await fetch(candidateUrl, { cache: 'no-store' });
-          if (response.ok) {
-            templateBuffer = await response.arrayBuffer();
-            break;
-          }
-        } catch (error) {
-          // continue trying other candidates
-        }
-      }
-
-      if (!templateBuffer) {
-        throw new Error(`找不到模板檔案：${WORD_TEMPLATE_FILENAME}`);
-      }
-
-      const zip = await JSZip.loadAsync(templateBuffer);
-      const documentXmlFile = zip.file('word/document.xml');
-
-      if (!documentXmlFile) {
-        throw new Error('模板缺少 word/document.xml');
-      }
-
-      let photoRelationshipId = '';
-      if (data.photoDataUrl) {
-        photoRelationshipId = await injectPhotoIntoWordZip(zip, data.photoDataUrl);
-      }
-
-      const documentXml = await documentXmlFile.async('string');
-      const xmlDocument = new DOMParser().parseFromString(documentXml, 'application/xml');
-      const parserError = xmlDocument.getElementsByTagName('parsererror')[0];
-      if (parserError) {
-        throw new Error('模板 XML 解析失敗');
-      }
-
-      fillResumeTemplateXml(xmlDocument, data, { photoRelationshipId });
-
-      const serializedXml = new XMLSerializer().serializeToString(xmlDocument);
-      zip.file('word/document.xml', serializedXml);
-
-      const outputBlob = await zip.generateAsync({
-        type: 'blob',
-        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      });
-
-      const downloadLink = document.createElement('a');
-      downloadLink.href = URL.createObjectURL(outputBlob);
-      downloadLink.download = getExportFilename(data.name, data.fillDate).replace(/\.doc$/i, '.docx');
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-      URL.revokeObjectURL(downloadLink.href);
+      const outputBlob = await buildTemplateWordBlob();
+      downloadBlob(outputBlob, getExportFilename(data.name, data.fillDate).replace(/\.doc$/i, '.docx'));
     } catch (error) {
       console.error('模板匯出失敗，改用相容模式：', error);
       showNotice('模板匯出失敗，已改用相容模式匯出 .doc。', 'error');
       await exportToWordLegacy(true);
     } finally {
       setIsExportingWord(false);
+    }
+  };
+
+  const arrayBufferToBase64 = (arrayBuffer) => {
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+    }
+
+    return window.btoa(binary);
+  };
+
+  const sendResumeByEmail = async () => {
+    if (isSendingEmail) return;
+    if (!ensureValidBeforeAction('送出寄送')) return;
+
+    if (!isFirebaseAuthConfigured()) {
+      showNotice('尚未設定 Firebase 登入，無法送出寄送。', 'error');
+      return;
+    }
+
+    if (!authReady) {
+      showNotice('正在確認登入狀態，請稍後再試。', 'error');
+      return;
+    }
+
+    if (!authUser) {
+      showNotice('請先使用 Google 登入後再送出。', 'error');
+      return;
+    }
+
+    setIsSendingEmail(true);
+
+    try {
+      let attachmentBlob;
+      let attachmentFilename;
+      let attachmentMimeType;
+
+      try {
+        attachmentBlob = await buildTemplateWordBlob();
+        attachmentFilename = getExportFilename(data.name, data.fillDate).replace(/\.doc$/i, '.docx');
+        attachmentMimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      } catch (error) {
+        console.error('模板產生失敗，改用相容模式寄送：', error);
+        attachmentBlob = await buildLegacyWordBlob();
+        attachmentFilename = getExportFilename(data.name, data.fillDate);
+        attachmentMimeType = 'application/msword';
+        showNotice('模板產生失敗，已改用相容 .doc 格式寄送。', 'error');
+      }
+
+      const attachmentBuffer = await attachmentBlob.arrayBuffer();
+      const attachmentBase64 = arrayBufferToBase64(attachmentBuffer);
+      const idToken = typeof authUser.getIdToken === 'function' ? await authUser.getIdToken() : '';
+      const apiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').trim();
+      const endpoint = `${apiBaseUrl.replace(/\/$/, '')}/api/send-resume`;
+      const response = await fetch(apiBaseUrl ? endpoint : '/api/send-resume', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({
+          attachmentBase64,
+          attachmentFilename,
+          attachmentMimeType,
+          applicantName: data.name,
+          applicantEmail: data.email,
+          applicantPhone: data.phone,
+          fillDate: data.fillDate,
+          submitterEmail: authUser.email || '',
+          submitterName: authUser.displayName || '',
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.message || '寄送失敗');
+      }
+
+      showNotice('已成功送出，Word 附件已寄到指定信箱。', 'info');
+    } catch (error) {
+      console.error('Send email failed:', error);
+      showNotice('送出寄送失敗，請稍後重試。', 'error');
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -543,8 +686,15 @@ const ResumeBuilder = () => {
         onEdit={() => setMode('edit')}
         onPreview={goPreview}
         onExportWord={exportToWord}
+        onSendEmail={sendResumeByEmail}
         onPrint={printDocument}
         isExportingWord={isExportingWord}
+        isSendingEmail={isSendingEmail}
+        authUser={authUser}
+        isAuthBusy={isAuthBusy}
+        isAuthConfigured={isFirebaseAuthConfigured()}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
       />
       <NoticeBanner notice={notice} />
 

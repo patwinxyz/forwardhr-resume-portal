@@ -27,8 +27,10 @@ dist
 *.sql
 *.bak
 
-# Sensitive local assets (keep local only)
+# Sensitive local assets (keep local only, root files)
 logo.jpg
-public/logo.jpg
 評點製_人事資料表.docx
-public/評點製_人事資料表.docx
+
+# Required runtime assets (must be deployed)
+!public/logo.jpg
+!public/評點製_人事資料表.docx

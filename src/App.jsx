@@ -685,6 +685,48 @@ const ResumeBuilder = () => {
   const educationForOutput = getEducationForOutput(data.education);
   const hasCertificates = hasValue(data.certificates);
   const adultMaxBirthDate = getAdultMaxBirthDate();
+  const isAuthConfigured = isFirebaseAuthConfigured();
+
+  if (!isAuthConfigured) {
+    return (
+      <div className="min-h-screen bg-gray-100 font-sans text-gray-800">
+        <ResumeStyles />
+        <NoticeBanner notice={notice} />
+        <div className="max-w-xl mx-auto px-4 py-16">
+          <div className="bg-white rounded-2xl shadow-sm border border-amber-200 p-8">
+            <h1 className="text-2xl font-bold text-gray-800 mb-3">灃禾集團 履歷系統</h1>
+            <p className="text-amber-700 leading-relaxed">
+              目前尚未完成 Firebase 登入設定，請先補齊 `VITE_FIREBASE_*` 環境變數後重新部署。
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authReady || !authUser) {
+    return (
+      <div className="min-h-screen bg-gray-100 font-sans text-gray-800">
+        <ResumeStyles />
+        <NoticeBanner notice={notice} />
+        <div className="max-w-xl mx-auto px-4 py-16">
+          <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-8 text-center">
+            <h1 className="text-2xl font-bold text-blue-700 mb-2">灃禾集團 履歷系統</h1>
+            <p className="text-gray-600 mb-6">請先使用 Google 信箱登入後再使用系統。</p>
+            <button
+              onClick={handleLogin}
+              disabled={isAuthBusy || !authReady}
+              className={`inline-flex items-center justify-center px-6 py-3 rounded-lg font-medium text-white transition-colors ${
+                isAuthBusy || !authReady ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {authReady ? (isAuthBusy ? '登入中...' : 'Google 登入') : '載入登入狀態中...'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 font-sans text-gray-800 pb-12">
@@ -700,7 +742,7 @@ const ResumeBuilder = () => {
         isSendingEmail={isSendingEmail}
         authUser={authUser}
         isAuthBusy={isAuthBusy}
-        isAuthConfigured={isFirebaseAuthConfigured()}
+        isAuthConfigured={isAuthConfigured}
         onLogin={handleLogin}
         onLogout={handleLogout}
       />

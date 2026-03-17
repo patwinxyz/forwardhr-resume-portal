@@ -51,7 +51,9 @@ const EditMode = ({
     const anchor = stepTopRef.current;
     if (!anchor) return;
     window.requestAnimationFrame(() => {
-      anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const navOffset = 88;
+      const targetY = Math.max(0, window.scrollY + anchor.getBoundingClientRect().top - navOffset);
+      window.scrollTo({ top: targetY, behavior: 'smooth' });
     });
   }, [currentStep, wizardMode]);
 
@@ -67,7 +69,7 @@ const EditMode = ({
 
   return (
     <div className={`resume-edit-form ${wizardMode ? 'pb-28 sm:pb-0' : ''} ${compactMode ? 'md:[zoom:0.90]' : ''} space-y-4 sm:space-y-6`}>
-      <div ref={stepTopRef} />
+      <div ref={stepTopRef} className="scroll-mt-24" />
 
       {validationErrors.length > 0 && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 sm:px-5 sm:py-4">

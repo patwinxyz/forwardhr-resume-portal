@@ -88,6 +88,7 @@ const PHOTO_WIDTH_CM = '3.51cm';
 const PHOTO_HEIGHT_CM = '4.4cm';
 const PHOTO_WIDTH_EMU = 1263600;
 const PHOTO_HEIGHT_EMU = 1584000;
+const WORD_PARAGRAPH_SPACE_AFTER_TWIPS = '140';
 const MIN_AGE = 18;
 
 let logoDataUrlCache = '';
@@ -326,6 +327,22 @@ const setWordCellDrawing = (cell, drawingNode) => {
   }
   run.appendChild(drawingNode);
   paragraph.appendChild(run);
+};
+
+const setWordParagraphAfterSpacing = (paragraph, afterTwips = WORD_PARAGRAPH_SPACE_AFTER_TWIPS) => {
+  const xmlDocument = paragraph.ownerDocument;
+  let paragraphProps = getDirectWordChildren(paragraph, 'pPr')[0];
+  if (!paragraphProps) {
+    paragraphProps = createWordNode(xmlDocument, 'pPr');
+    paragraph.insertBefore(paragraphProps, paragraph.firstChild);
+  }
+
+  let spacingNode = getDirectWordChildren(paragraphProps, 'spacing')[0];
+  if (!spacingNode) {
+    spacingNode = createWordNode(xmlDocument, 'spacing');
+    paragraphProps.appendChild(spacingNode);
+  }
+  spacingNode.setAttributeNS(WORD_XML_NS, 'w:after', String(afterTwips));
 };
 
 const getNextDrawingId = (xmlDocument) => {
@@ -633,6 +650,10 @@ const fillResumeTemplateXml = (xmlDocument, formData, options = {}) => {
   if (fillDateParagraph) {
     setWordParagraphText(fillDateParagraph, formatFillDateLine(formData.fillDate));
   }
+
+  Array.from(xmlDocument.getElementsByTagNameNS(WORD_XML_NS, 'p')).forEach((paragraph) => {
+    setWordParagraphAfterSpacing(paragraph);
+  });
 };
 
 export {

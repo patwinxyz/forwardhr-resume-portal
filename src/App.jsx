@@ -1458,7 +1458,7 @@ const ResumeBuilder = () => {
       });
       showNotice('履歷已成功送出。', 'success');
     } catch (error) {
-      console.error('Send email failed:', error);
+      console.error('履歷寄送失敗：', error);
       const errorMessage = error instanceof Error ? error.message : '請稍後重試。';
       showNotice(`送出寄送失敗：${errorMessage}`, 'error');
     } finally {

@@ -209,8 +209,8 @@ export default async function handler(req, res) {
       if (!ipQuota.allowed) {
         return res.status(429).json({
           ok: false,
-          message: 'Daily request limit reached for current network. Please try again tomorrow (Asia/Taipei).',
-          details: [`IP daily limit: ${ipDailyLimit}`, `Date: ${dateKey}`],
+          message: '已達到此網路今日寄送上限，請於明天（Asia/Taipei）再試。',
+          details: [`IP 每日上限：${ipDailyLimit}`, `日期：${dateKey}`],
         });
       }
     }
@@ -227,15 +227,15 @@ export default async function handler(req, res) {
     if (!uidQuota.allowed) {
       return res.status(429).json({
         ok: false,
-        message: 'Daily request limit reached for current account. Please try again tomorrow (Asia/Taipei).',
-        details: [`Account daily limit: ${uidDailyLimit}`, `Date: ${dateKey}`],
+        message: '已達到此帳號今日寄送上限，請於明天（Asia/Taipei）再試。',
+        details: [`帳號每日上限：${uidDailyLimit}`, `日期：${dateKey}`],
       });
     }
   } catch (error) {
     console.error('Rate limit check failed:', error);
     return res.status(503).json({
       ok: false,
-      message: 'Rate limit service is temporarily unavailable. Please try again later.',
+      message: '寄送上限服務暫時無法使用，請稍後再試。',
     });
   }
 

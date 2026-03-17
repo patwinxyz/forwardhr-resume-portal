@@ -622,8 +622,7 @@ const ResumeBuilder = () => {
         body: JSON.stringify({
           action: 'setContactStatus',
           recordId: record.id,
-          setEmailReplied: Boolean(nextStatus?.setEmailReplied),
-          setPhoneReplied: Boolean(nextStatus?.setPhoneReplied),
+          setContacted: Boolean(nextStatus?.setContacted),
         }),
       });
       const result = await parseResponsePayload(response);

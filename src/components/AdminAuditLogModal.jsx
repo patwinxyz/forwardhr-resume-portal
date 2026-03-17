@@ -10,6 +10,9 @@ const formatDateTime = (value) => {
 const renderSummary = (log) => {
   const action = String(log?.action || '');
   if (action === 'set_contact_status') {
+    if (typeof log?.setContacted === 'boolean') {
+      return log.setContacted ? '已處理（已回信/回電）' : '改為待處理';
+    }
     const emailFlag = log?.setEmailReplied ? '已回信' : '未回信';
     const phoneFlag = log?.setPhoneReplied ? '已回電' : '未回電';
     return `${emailFlag} / ${phoneFlag}`;
@@ -97,4 +100,3 @@ const AdminAuditLogModal = ({
 };
 
 export default AdminAuditLogModal;
-

@@ -585,8 +585,10 @@ const patchRecord = async (req, res, authUser, isAdmin) => {
       return res.status(403).json({ ok: false, message: 'Forbidden' });
     }
 
-    const setEmailReplied = body?.setEmailReplied === true;
-    const setPhoneReplied = body?.setPhoneReplied === true;
+    const hasSetContactedFlag = Object.prototype.hasOwnProperty.call(body || {}, 'setContacted');
+    const setContacted = body?.setContacted === true;
+    const setEmailReplied = hasSetContactedFlag ? setContacted : body?.setEmailReplied === true;
+    const setPhoneReplied = hasSetContactedFlag ? setContacted : body?.setPhoneReplied === true;
 
     const nextEmailRepliedAt = setEmailReplied ? (existing.emailRepliedAt || nowIso) : '';
     const nextPhoneRepliedAt = setPhoneReplied ? (existing.phoneRepliedAt || nowIso) : '';
@@ -618,6 +620,7 @@ const patchRecord = async (req, res, authUser, isAdmin) => {
       recordId,
       ownerUid: normalizeUid(existing?.ownerUid),
       ownerEmail: String(existing?.ownerEmail || '').trim().toLowerCase(),
+      setContacted,
       setEmailReplied,
       setPhoneReplied,
       completed: isCompleted,

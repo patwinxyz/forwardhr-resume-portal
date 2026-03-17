@@ -9,18 +9,12 @@ const formatDateTime = (value) => {
   return new Date(parsed).toLocaleString('zh-TW', { hour12: false });
 };
 
-const getContactStage = (record) => {
-  const hasEmailReply = Boolean(record?.emailRepliedAt);
-  const hasPhoneReply = Boolean(record?.phoneRepliedAt);
-  if (hasEmailReply && hasPhoneReply) return 'done';
-  if (hasEmailReply || hasPhoneReply) return 'in-progress';
-  return 'pending';
-};
+const isContactedRecord = (record) =>
+  Boolean(record?.completedAt || record?.emailRepliedAt || record?.phoneRepliedAt);
 
 const TABS = [
   { key: 'all', label: '全部' },
   { key: 'pending', label: '待處理' },
-  { key: 'in-progress', label: '處理中' },
   { key: 'done', label: '已完成' },
 ];
 
@@ -51,7 +45,8 @@ const AdminRecordPanel = ({
 
   const filteredRecords = useMemo(() => {
     if (tab === 'all') return records;
-    return records.filter((record) => getContactStage(record) === tab);
+    if (tab === 'pending') return records.filter((record) => !isContactedRecord(record));
+    return records.filter((record) => isContactedRecord(record));
   }, [records, tab]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
@@ -96,43 +91,22 @@ const AdminRecordPanel = ({
     </div>
   );
 
-  const renderContactCheckboxes = (record) => {
+  const renderContactedCheckbox = (record) => {
     const isUpdating = isUpdatingStatusId === record.id;
+    const isChecked = isContactedRecord(record);
     return (
       <div className="flex items-center justify-center">
         <input
           type="checkbox"
-          checked={Boolean(record.emailRepliedAt)}
+          checked={isChecked}
           disabled={isUpdating}
           onChange={(event) =>
             onUpdateContactStatus(record, {
-              setEmailReplied: event.target.checked,
-              setPhoneReplied: Boolean(record.phoneRepliedAt),
+              setContacted: event.target.checked,
             })
           }
           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
-          title={record.emailRepliedAt ? `已回信：${formatDateTime(record.emailRepliedAt)}` : '未回信'}
-        />
-      </div>
-    );
-  };
-
-  const renderPhoneCheckboxes = (record) => {
-    const isUpdating = isUpdatingStatusId === record.id;
-    return (
-      <div className="flex items-center justify-center">
-        <input
-          type="checkbox"
-          checked={Boolean(record.phoneRepliedAt)}
-          disabled={isUpdating}
-          onChange={(event) =>
-            onUpdateContactStatus(record, {
-              setEmailReplied: Boolean(record.emailRepliedAt),
-              setPhoneReplied: event.target.checked,
-            })
-          }
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
-          title={record.phoneRepliedAt ? `已回電：${formatDateTime(record.phoneRepliedAt)}` : '未回電'}
+          title={isChecked ? `已處理：${formatDateTime(record.completedAt || record.updatedAt)}` : '待處理'}
         />
       </div>
     );
@@ -210,23 +184,22 @@ const AdminRecordPanel = ({
                   <th className="text-center px-3 py-3 w-12">選取</th>
                   <th className="text-left px-3 py-3 w-[14%]">姓名</th>
                   <th className="text-left px-3 py-3 w-[14%]">電話</th>
-                  <th className="text-left px-3 py-3 w-[28%]">Email</th>
-                  <th className="text-center px-3 py-3 w-[8%]">已回信</th>
-                  <th className="text-center px-3 py-3 w-[8%]">已回電</th>
+                  <th className="text-left px-3 py-3 w-[34%]">Email</th>
+                  <th className="text-center px-3 py-3 w-[10%]">已處理</th>
                   <th className="text-right px-3 py-3">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td className="px-3 py-8 text-center text-gray-500" colSpan={7}>
+                    <td className="px-3 py-8 text-center text-gray-500" colSpan={6}>
                       <Loader2 className="w-5 h-5 animate-spin inline-block mr-2" />
                       查詢中...
                     </td>
                   </tr>
                 ) : filteredRecords.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-8 text-center text-gray-500" colSpan={7}>
+                    <td className="px-3 py-8 text-center text-gray-500" colSpan={6}>
                       查無資料
                     </td>
                   </tr>
@@ -253,8 +226,7 @@ const AdminRecordPanel = ({
                             最後修改：{formatDateTime(record.lastModifiedAt || record.updatedAt)}
                           </div>
                         </td>
-                        <td className="px-3 py-3">{renderContactCheckboxes(record)}</td>
-                        <td className="px-3 py-3">{renderPhoneCheckboxes(record)}</td>
+                        <td className="px-3 py-3">{renderContactedCheckbox(record)}</td>
                         <td className="px-3 py-3">{renderActionButtons(record)}</td>
                       </tr>
                     );
@@ -307,36 +279,20 @@ const AdminRecordPanel = ({
                         {formatDateTime(record.lastModifiedAt || record.updatedAt)}
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="mt-3">
                       <label className="inline-flex items-center gap-2 text-sm text-gray-700">
                         <input
                           type="checkbox"
-                          checked={Boolean(record.emailRepliedAt)}
+                          checked={isContactedRecord(record)}
                           disabled={isUpdatingStatusId === record.id}
                           onChange={(event) =>
                             onUpdateContactStatus(record, {
-                              setEmailReplied: event.target.checked,
-                              setPhoneReplied: Boolean(record.phoneRepliedAt),
+                              setContacted: event.target.checked,
                             })
                           }
                           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
-                        已回信
-                      </label>
-                      <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(record.phoneRepliedAt)}
-                          disabled={isUpdatingStatusId === record.id}
-                          onChange={(event) =>
-                            onUpdateContactStatus(record, {
-                              setEmailReplied: Boolean(record.emailRepliedAt),
-                              setPhoneReplied: event.target.checked,
-                            })
-                          }
-                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        已回電
+                        已處理（已回信/回電）
                       </label>
                     </div>
                     <div className="mt-3">{renderActionButtons(record, true)}</div>

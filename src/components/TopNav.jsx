@@ -1,20 +1,15 @@
 import React from 'react';
-import { Edit, FileText, FolderOpen, Loader2, LogIn, LogOut, PlusCircle, Save, Send } from 'lucide-react';
+import { FileText, FolderOpen, Loader2, LogIn, LogOut, PlusCircle, RefreshCw, Send } from 'lucide-react';
 
 const TopNav = ({
-  mode,
-  onEdit,
-  onPreview,
-  onSendEmail,
+  isAdmin,
+  isAdminRoute,
   onNewDraft,
-  onSaveDraft,
   onLoadDrafts,
+  onSendEmail,
   isSendingEmail,
-  isSavingDraft,
-  canSaveDraft,
   isLoadingDrafts,
   authUser,
-  isAdmin,
   isAuthBusy,
   isAuthConfigured,
   onLogin,
@@ -59,79 +54,35 @@ const TopNav = ({
           )}
         </div>
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-2">
-          {isAdmin ? (
-            <>
-              <button
-                onClick={onLoadDrafts}
-                disabled={isLoadingDrafts}
-                className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-                  isLoadingDrafts ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-slate-600 text-white hover:bg-slate-700'
-                }`}
-              >
-                {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />} 重新整理列表
-              </button>
-              <button
-                onClick={onSaveDraft}
-                disabled={isSavingDraft || !canSaveDraft}
-                className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-                  isSavingDraft || !canSaveDraft
-                    ? 'bg-emerald-300 text-white cursor-not-allowed'
-                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                }`}
-              >
-                {isSavingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 儲存修改
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={onNewDraft}
-                className="flex items-center gap-1 px-3 py-2 rounded-md font-medium text-gray-600 hover:bg-gray-100 transition-colors"
-              >
-                <PlusCircle className="w-4 h-4" /> 新建
-              </button>
-              <button
-                onClick={onSaveDraft}
-                disabled={isSavingDraft}
-                className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-                  isSavingDraft ? 'bg-emerald-300 text-white cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                }`}
-              >
-                {isSavingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 儲存草稿
-              </button>
-              <button
-                onClick={onLoadDrafts}
-                disabled={isLoadingDrafts}
-                className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-                  isLoadingDrafts ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-slate-600 text-white hover:bg-slate-700'
-                }`}
-              >
-                {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />} 載入草稿
-              </button>
-              <button
-                onClick={onEdit}
-                className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-                  mode === 'edit' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <Edit className="w-4 h-4" /> 編輯資料
-              </button>
-              <button
-                onClick={onPreview}
-                className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-                  mode === 'preview' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <FileText className="w-4 h-4" /> 預覽
-              </button>
-            </>
-          )}
-        </div>
 
-        {mode === 'preview' && !isAdmin && (
-          <div className="flex flex-wrap gap-2 sm:justify-end">
+      <div className="flex flex-wrap gap-2">
+        {isAdmin && isAdminRoute ? (
+          <button
+            onClick={onLoadDrafts}
+            disabled={isLoadingDrafts}
+            className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
+              isLoadingDrafts ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-slate-600 text-white hover:bg-slate-700'
+            }`}
+          >
+            {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} 重新整理列表
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={onNewDraft}
+              className="flex items-center gap-1 px-3 py-2 rounded-md font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <PlusCircle className="w-4 h-4" /> 新建
+            </button>
+            <button
+              onClick={onLoadDrafts}
+              disabled={isLoadingDrafts}
+              className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
+                isLoadingDrafts ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-slate-600 text-white hover:bg-slate-700'
+              }`}
+            >
+              {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />} 載入歷史履歷
+            </button>
             <button
               onClick={onSendEmail}
               disabled={isSendingEmail}
@@ -141,7 +92,7 @@ const TopNav = ({
             >
               <Send className="w-4 h-4" /> {isSendingEmail ? '送出中...' : '送出寄送'}
             </button>
-          </div>
+          </>
         )}
       </div>
     </div>
@@ -149,3 +100,4 @@ const TopNav = ({
 );
 
 export default TopNav;
+

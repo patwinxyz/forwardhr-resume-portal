@@ -1,7 +1,8 @@
-import { getFirestoreDb, verifyFirebaseIdToken } from './_lib/firebaseAdmin.js';
+import { getFirestoreDb, getStorageBucket, verifyFirebaseIdToken } from './_lib/firebaseAdmin.js';
 
 const COLLECTION_NAME = 'resumeRecords';
 const MAX_FORMDATA_BYTES = 900000;
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const ADMIN_EMAILS = new Set(
   String(process.env.ADMIN_EMAILS || process.env.VITE_ADMIN_EMAILS || '')
     .split(',')
@@ -56,13 +57,141 @@ const normalizeRecord = (doc) => {
   };
 };
 
-const matchRecordByKeywords = (record, nameKeyword, arcKeyword) => {
-  if (!nameKeyword && !arcKeyword) return true;
+const isDataUrlImage = (value) => /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(String(value || ''));
+
+const parseImageDataUrl = (dataUrl) => {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/i.exec(String(dataUrl || ''));
+  if (!match) throw new Error('Invalid image data URL');
+  return {
+    mimeType: match[1].toLowerCase(),
+    base64Data: match[2],
+  };
+};
+
+const getImageExtensionFromMime = (mimeType) => {
+  if (mimeType === 'image/png') return 'png';
+  if (mimeType === 'image/webp') return 'webp';
+  if (mimeType === 'image/gif') return 'gif';
+  if (mimeType === 'image/bmp') return 'bmp';
+  return 'jpg';
+};
+
+const deleteStorageObject = async (bucket, photoPath) => {
+  const safePath = toSafeText(photoPath);
+  if (!safePath) return;
+  try {
+    await bucket.file(safePath).delete({ ignoreNotFound: true });
+  } catch (error) {
+    // keep record operation running if old photo cleanup fails
+  }
+};
+
+const uploadPhotoDataUrlToStorage = async (bucket, ownerUid, recordId, photoDataUrl) => {
+  const { mimeType, base64Data } = parseImageDataUrl(photoDataUrl);
+  const buffer = Buffer.from(base64Data, 'base64');
+
+  if (!buffer || buffer.length === 0) {
+    throw new Error('照片內容為空');
+  }
+  if (buffer.length > MAX_PHOTO_BYTES) {
+    throw new Error('照片過大，請上傳 8MB 以下圖片');
+  }
+
+  const extension = getImageExtensionFromMime(mimeType);
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
+  const photoPath = `resume-photos/${ownerUid}/${recordId}/${fileName}`;
+  const file = bucket.file(photoPath);
+
+  await file.save(buffer, {
+    resumable: false,
+    contentType: mimeType,
+    metadata: {
+      cacheControl: 'public,max-age=31536000',
+    },
+  });
+
+  const [photoURL] = await file.getSignedUrl({
+    action: 'read',
+    expires: '2500-01-01',
+  });
+
+  return {
+    photoPath,
+    photoURL,
+  };
+};
+
+const applyPhotoPersistence = async ({
+  incomingFormData,
+  existingFormData,
+  ownerUid,
+  recordId,
+}) => {
+  const normalizedFormData = { ...incomingFormData };
+  const incomingPhoto = String(incomingFormData?.photoDataUrl || '').trim();
+  const existingPhotoPath = toSafeText(existingFormData?.photoPath);
+  const existingPhotoURL = String(existingFormData?.photoURL || '').trim();
+
+  // 新照片（data URL）：上傳 Storage，回存 photoPath/photoURL
+  if (isDataUrlImage(incomingPhoto)) {
+    const bucket = getStorageBucket();
+    const { photoPath, photoURL } = await uploadPhotoDataUrlToStorage(bucket, ownerUid, recordId, incomingPhoto);
+    if (existingPhotoPath && existingPhotoPath !== photoPath) {
+      await deleteStorageObject(bucket, existingPhotoPath);
+    }
+    normalizedFormData.photoPath = photoPath;
+    normalizedFormData.photoURL = photoURL;
+    normalizedFormData.photoDataUrl = photoURL;
+    normalizedFormData.photoUpdatedAt = new Date().toISOString();
+    return normalizedFormData;
+  }
+
+  // 清空照片
+  if (!incomingPhoto) {
+    if (existingPhotoPath) {
+      const bucket = getStorageBucket();
+      await deleteStorageObject(bucket, existingPhotoPath);
+    }
+    normalizedFormData.photoPath = '';
+    normalizedFormData.photoURL = '';
+    normalizedFormData.photoDataUrl = '';
+    normalizedFormData.photoUpdatedAt = '';
+    return normalizedFormData;
+  }
+
+  // 已存在的 URL（例如載入歷史後儲存）
+  if (/^https?:\/\//i.test(incomingPhoto)) {
+    normalizedFormData.photoPath = existingPhotoPath;
+    normalizedFormData.photoURL = incomingPhoto;
+    normalizedFormData.photoDataUrl = incomingPhoto;
+    normalizedFormData.photoUpdatedAt =
+      incomingPhoto === existingPhotoURL
+        ? String(existingFormData?.photoUpdatedAt || '')
+        : new Date().toISOString();
+    return normalizedFormData;
+  }
+
+  // 其他格式直接沿用舊值，避免誤覆蓋
+  normalizedFormData.photoPath = existingPhotoPath;
+  normalizedFormData.photoURL = existingPhotoURL;
+  normalizedFormData.photoDataUrl = existingPhotoURL;
+  normalizedFormData.photoUpdatedAt = String(existingFormData?.photoUpdatedAt || '');
+  return normalizedFormData;
+};
+
+const matchRecordByKeywords = (record, filters) => {
   const formData = record?.formData || {};
   const candidateName = String(formData.name || '').toLowerCase();
   const candidateArc = String(formData.arcNumber || '').toLowerCase();
-  if (nameKeyword && !candidateName.includes(nameKeyword)) return false;
-  if (arcKeyword && !candidateArc.includes(arcKeyword)) return false;
+  const candidatePhone = String(formData.phone || '').toLowerCase();
+
+  if (filters.q) {
+    const hit = [candidateName, candidateArc, candidatePhone].some((candidate) => candidate.includes(filters.q));
+    if (!hit) return false;
+  }
+
+  if (filters.name && !candidateName.includes(filters.name)) return false;
+  if (filters.arcNumber && !candidateArc.includes(filters.arcNumber)) return false;
   return true;
 };
 
@@ -95,8 +224,12 @@ const isAdminUser = (authUser) => {
 
 const listRecords = async (req, res, authUser, isAdmin) => {
   const db = getFirestoreDb();
-  const nameKeyword = toSearchKeyword(req.query?.name);
-  const arcKeyword = toSearchKeyword(req.query?.arcNumber);
+  const filters = {
+    q: toSearchKeyword(req.query?.q),
+    name: toSearchKeyword(req.query?.name),
+    arcNumber: toSearchKeyword(req.query?.arcNumber),
+  };
+
   const query = isAdmin
     ? db.collection(COLLECTION_NAME)
     : db.collection(COLLECTION_NAME).where('ownerUid', '==', authUser.uid);
@@ -104,7 +237,7 @@ const listRecords = async (req, res, authUser, isAdmin) => {
 
   const records = snapshot.docs
     .map(normalizeRecord)
-    .filter((record) => matchRecordByKeywords(record, nameKeyword, arcKeyword))
+    .filter((record) => matchRecordByKeywords(record, filters))
     .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
 
   return res.status(200).json({ ok: true, records });
@@ -113,56 +246,64 @@ const listRecords = async (req, res, authUser, isAdmin) => {
 const upsertRecord = async (req, res, authUser, isAdmin) => {
   const db = getFirestoreDb();
   const body = parseBody(req);
-  const formData = body?.formData;
+  const incomingFormData = body?.formData;
   const recordId = toSafeText(body?.recordId);
   const title = toSafeText(body?.title) || '未命名草稿';
 
-  if (!formData || typeof formData !== 'object' || Array.isArray(formData)) {
+  if (!incomingFormData || typeof incomingFormData !== 'object' || Array.isArray(incomingFormData)) {
     return res.status(400).json({ ok: false, message: 'Invalid formData' });
   }
 
-  try {
-    validateFormDataSize(formData);
-  } catch (error) {
-    return res.status(413).json({ ok: false, message: error.message });
-  }
-
   const nowIso = new Date().toISOString();
-  const payload = {
-    title,
-    ownerUid: authUser.uid,
-    ownerEmail: authUser.email || '',
-    ownerName: authUser.name || '',
-    formData,
-    updatedAt: nowIso,
-  };
-
   let docRef;
+  let existingData = null;
+
   if (recordId) {
     docRef = db.collection(COLLECTION_NAME).doc(recordId);
     const snapshot = await docRef.get();
     if (!snapshot.exists) {
       return res.status(404).json({ ok: false, message: 'Record not found' });
     }
-    const existing = snapshot.data() || {};
-    if (!isAdmin && existing.ownerUid !== authUser.uid) {
+    existingData = snapshot.data() || {};
+    if (!isAdmin && existingData.ownerUid !== authUser.uid) {
       return res.status(403).json({ ok: false, message: 'Forbidden' });
     }
-    await docRef.update(
-      isAdmin
-        ? payload
-        : {
-            ...payload,
-            ownerUid: authUser.uid,
-            ownerEmail: authUser.email || '',
-            ownerName: authUser.name || '',
-          },
-    );
   } else {
     if (isAdmin) {
       return res.status(403).json({ ok: false, message: '管理員僅可編修既有資料，無法新增草稿' });
     }
     docRef = db.collection(COLLECTION_NAME).doc();
+  }
+
+  const ownerUid = existingData?.ownerUid || authUser.uid;
+  const ownerEmail = existingData?.ownerEmail || authUser.email || '';
+  const ownerName = existingData?.ownerName || authUser.name || '';
+
+  let normalizedFormData;
+  try {
+    normalizedFormData = await applyPhotoPersistence({
+      incomingFormData,
+      existingFormData: existingData?.formData || {},
+      ownerUid,
+      recordId: docRef.id,
+    });
+    validateFormDataSize(normalizedFormData);
+  } catch (error) {
+    return res.status(400).json({ ok: false, message: error?.message || '照片處理失敗' });
+  }
+
+  const payload = {
+    title,
+    ownerUid,
+    ownerEmail,
+    ownerName,
+    formData: normalizedFormData,
+    updatedAt: nowIso,
+  };
+
+  if (existingData) {
+    await docRef.update(payload);
+  } else {
     await docRef.set({
       ...payload,
       createdAt: nowIso,
@@ -189,6 +330,16 @@ const deleteRecord = async (req, res, authUser, isAdmin) => {
   const existing = snapshot.data() || {};
   if (!isAdmin && existing.ownerUid !== authUser.uid) {
     return res.status(403).json({ ok: false, message: 'Forbidden' });
+  }
+
+  const photoPath = toSafeText(existing?.formData?.photoPath);
+  if (photoPath) {
+    try {
+      const bucket = getStorageBucket();
+      await deleteStorageObject(bucket, photoPath);
+    } catch (error) {
+      // keep delete record running
+    }
   }
 
   await docRef.delete();

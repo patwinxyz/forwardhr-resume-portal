@@ -6,7 +6,10 @@
 - Google 登入（Firebase Auth）
 - 送出時將 Word 附件寄送到指定信箱（Resend + `/api/send-resume`）
 - 權限切分：一般使用者可填表與送出；管理員模式只提供履歷 CRUD 管理
-- 管理員列表查詢：可依「姓名 / 證件號碼」查詢並直接載入編修
+- 管理員列表查詢：單一搜尋列可查「姓名 / 證件號碼 / 電話」
+- 管理員介面：`/admin` 首頁即查詢列表，操作含「檢視 / 編輯 / 刪除」，編輯使用右側抽屜
+- 使用者介面：僅保留「新建 / 載入歷史履歷 / 送出寄送」，送出時自動儲存後寄信
+- 照片儲存：照片上傳至 Firebase Storage，Firestore 僅儲存照片路徑與 URL
 
 ## 專案結構
 
@@ -51,6 +54,9 @@ copy .env.example .env
 管理員白名單設定（後端）：
 - `ADMIN_EMAILS`：與 `VITE_ADMIN_EMAILS` 使用相同清單。
 - 用於後端 API 權限判斷（管理員可讀取全部資料並刪除/更新）。
+
+照片儲存設定（後端）：
+- `FIREBASE_STORAGE_BUCKET`：Firebase Storage bucket 名稱。
 
 4. 啟動前端
 ```bash
@@ -103,13 +109,14 @@ npm run dev
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_CLIENT_EMAIL`
 - `FIREBASE_PRIVATE_KEY`
+- `FIREBASE_STORAGE_BUCKET`
 - （選填）`VITE_API_BASE_URL`
 4. 重新部署
 
 ## 送出寄送流程
 
 1. 使用者先 Google 登入
-2. 填寫完成後點「預覽」
+2. 填寫履歷資料
 3. 點「送出寄送」
-4. 系統會產生 Word 檔並寄到 `MAIL_TO`
+4. 系統會先自動儲存履歷（含照片路徑），再產生 Word 檔並寄到 `MAIL_TO`
 5. 模板失敗時會自動改用 `.doc` 相容格式寄送

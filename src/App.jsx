@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import AdminEditDrawer from './components/AdminEditDrawer';
 import AdminRecordPanel from './components/AdminRecordPanel';
+import AdminViewModal from './components/AdminViewModal';
 import DraftManager from './components/DraftManager';
 import EditMode from './components/EditMode';
 import NoticeBanner from './components/NoticeBanner';
-import PreviewMode from './components/PreviewMode';
 import ResumeStyles from './components/ResumeStyles';
 import TopNav from './components/TopNav';
 import {
@@ -53,7 +54,12 @@ const normalizeResumeData = (source) => {
     locations: Array.isArray(raw.locations) ? raw.locations : [],
     jobTypes: Array.isArray(raw.jobTypes) ? raw.jobTypes : [],
     workHours: Array.isArray(raw.workHours) ? raw.workHours : [],
-    photoDataUrl: typeof raw.photoDataUrl === 'string' ? raw.photoDataUrl : '',
+    photoDataUrl:
+      typeof raw.photoDataUrl === 'string' && raw.photoDataUrl
+        ? raw.photoDataUrl
+        : typeof raw.photoURL === 'string'
+          ? raw.photoURL
+          : '',
     fillDate: typeof raw.fillDate === 'string' && raw.fillDate ? raw.fillDate : getTodayDateText(),
   };
 
@@ -96,9 +102,9 @@ const parseAdminEmails = () =>
     .filter(Boolean);
 
 const ResumeBuilder = () => {
-  const FIXED_PREVIEW_SCALE = 0.8;
+  const isAdminRoute =
+    typeof window !== 'undefined' && /^\/admin(?:\/|$)/i.test(window.location.pathname || '');
   const [data, setData] = useState(() => createBlankResumeData());
-  const [mode, setMode] = useState('edit');
   const [validationErrors, setValidationErrors] = useState([]);
   const [isExportingWord, setIsExportingWord] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -108,7 +114,9 @@ const ResumeBuilder = () => {
   const [isDraftManagerOpen, setIsDraftManagerOpen] = useState(false);
   const [draftRecords, setDraftRecords] = useState([]);
   const [currentDraftId, setCurrentDraftId] = useState('');
-  const [adminFilters, setAdminFilters] = useState({ name: '', arcNumber: '' });
+  const [adminQuery, setAdminQuery] = useState('');
+  const [isAdminDrawerOpen, setIsAdminDrawerOpen] = useState(false);
+  const [viewingRecord, setViewingRecord] = useState(null);
   const [activeErrorField, setActiveErrorField] = useState('');
   const [notice, setNotice] = useState(null);
   const [authUser, setAuthUser] = useState(null);
@@ -164,6 +172,8 @@ const ResumeBuilder = () => {
     try {
       await logoutAuthUser();
       setCurrentDraftId('');
+      setIsAdminDrawerOpen(false);
+      setViewingRecord(null);
       setDraftRecords([]);
       setIsDraftManagerOpen(false);
       showNotice('已登出。', 'info');
@@ -192,10 +202,8 @@ const ResumeBuilder = () => {
   const fetchDraftRecords = async (filters = {}) => {
     const headers = await getAuthRequestHeaders();
     const params = new URLSearchParams();
-    const nameFilter = String(filters?.name || '').trim();
-    const arcFilter = String(filters?.arcNumber || '').trim();
-    if (nameFilter) params.set('name', nameFilter);
-    if (arcFilter) params.set('arcNumber', arcFilter);
+    const keyword = String(filters?.q || '').trim();
+    if (keyword) params.set('q', keyword);
     const query = params.toString();
     const response = await fetch(`${getApiEndpoint('/api/resume-records')}${query ? `?${query}` : ''}`, {
       method: 'GET',
@@ -230,37 +238,31 @@ const ResumeBuilder = () => {
   };
 
   useEffect(() => {
-    if (!authUser || !isAdmin) return;
-    setMode('edit');
-    void loadRecords(adminFilters);
-  }, [authUser, isAdmin]);
+    if (!authUser || !isAdmin || !isAdminRoute) return;
+    void loadRecords({ q: adminQuery });
+  }, [authUser, isAdmin, isAdminRoute]);
 
   const openDraftManager = async () => {
-    if (isAdmin) {
-      await loadRecords(adminFilters);
+    if (isAdmin && isAdminRoute) {
+      await loadRecords({ q: adminQuery });
       return;
     }
     await loadRecords({}, { openModal: true });
   };
 
-  const saveDraft = async () => {
+  const upsertResumeRecord = async ({ showSuccessNotice = false, successMessage = '' } = {}) => {
     if (!authUser) {
       showNotice('請先登入後再儲存草稿。', 'error');
-      return;
+      return null;
     }
     if (isAdmin && !currentDraftId) {
       showNotice('管理員請先載入既有履歷後再儲存修改。', 'error');
-      return;
+      return null;
     }
 
     setIsSavingDraft(true);
     try {
       const headers = await getAuthRequestHeaders();
-      const draftPayload = {
-        ...data,
-        // Firestore 單文件限制 1MB，草稿先不保存照片
-        photoDataUrl: '',
-      };
       const title = `${data.name || '未命名'}_${data.fillDate || getTodayDateText()}`;
 
       const response = await fetch(getApiEndpoint('/api/resume-records'), {
@@ -269,7 +271,7 @@ const ResumeBuilder = () => {
         body: JSON.stringify({
           recordId: currentDraftId,
           title,
-          formData: draftPayload,
+          formData: data,
         }),
       });
       const result = await parseResponsePayload(response);
@@ -279,22 +281,36 @@ const ResumeBuilder = () => {
 
       const savedRecord = result.record;
       setCurrentDraftId(savedRecord.id);
+      if (savedRecord?.formData) {
+        setData(normalizeResumeData(savedRecord.formData));
+      }
+
       if (isAdmin) {
-        await loadRecords(adminFilters);
-        showNotice('履歷資料已更新。', 'info');
+        await loadRecords({ q: adminQuery });
       } else {
         setDraftRecords((prev) => {
           const merged = [savedRecord, ...prev.filter((item) => item.id !== savedRecord.id)];
           return merged.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
         });
-        showNotice('草稿已儲存（照片不會存入草稿）。', 'info');
       }
+      if (showSuccessNotice) {
+        showNotice(successMessage || (isAdmin ? '履歷資料已更新。' : '履歷已儲存。'), 'info');
+      }
+      return savedRecord;
     } catch (error) {
       console.error('Save draft failed:', error);
       showNotice(`儲存草稿失敗：${error?.message || '請稍後再試。'}`, 'error');
+      return null;
     } finally {
       setIsSavingDraft(false);
     }
+  };
+
+  const saveDraft = async () => {
+    await upsertResumeRecord({
+      showSuccessNotice: true,
+      successMessage: isAdmin ? '履歷資料已更新。' : '履歷已儲存。',
+    });
   };
 
   const applyDraftRecord = (record) => {
@@ -307,11 +323,12 @@ const ResumeBuilder = () => {
     const nextData = normalizeResumeData(record.formData);
     setData(nextData);
     setCurrentDraftId(record.id || '');
-    setMode('edit');
     if (!isAdmin) {
       setIsDraftManagerOpen(false);
+    } else {
+      setIsAdminDrawerOpen(true);
     }
-    showNotice(`已載入草稿：${record.title || '未命名草稿'}`, 'info');
+    showNotice(`已載入${isAdmin ? '履歷' : '草稿'}：${record.title || '未命名草稿'}`, 'info');
   };
 
   const deleteDraftRecord = async (recordId) => {
@@ -332,7 +349,9 @@ const ResumeBuilder = () => {
       setDraftRecords((prev) => prev.filter((item) => item.id !== recordId));
       if (currentDraftId === recordId) {
         setCurrentDraftId('');
+        setIsAdminDrawerOpen(false);
       }
+      setViewingRecord(null);
       showNotice('草稿已刪除。', 'info');
     } catch (error) {
       console.error('Delete draft failed:', error);
@@ -350,25 +369,30 @@ const ResumeBuilder = () => {
     clearValidationErrors();
     setData(createBlankResumeData());
     setCurrentDraftId('');
-    setMode('edit');
     showNotice('已建立新表單。', 'info');
   };
 
-  const handleAdminFilterChange = (field, value) => {
-    setAdminFilters((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+  const handleAdminQueryChange = (value) => {
+    setAdminQuery(value);
   };
 
   const handleAdminSearch = async () => {
-    await loadRecords(adminFilters);
+    await loadRecords({ q: adminQuery });
   };
 
   const handleAdminReset = async () => {
-    const emptyFilters = { name: '', arcNumber: '' };
-    setAdminFilters(emptyFilters);
-    await loadRecords(emptyFilters);
+    setAdminQuery('');
+    await loadRecords({ q: '' });
+  };
+
+  const handleAdminViewRecord = (record) => {
+    if (!record?.formData) return;
+    setViewingRecord(normalizeResumeData(record.formData));
+  };
+
+  const handleAdminEditRecord = (record) => {
+    applyDraftRecord(record);
+    setIsAdminDrawerOpen(true);
   };
 
   const focusField = (fieldKey) => {
@@ -471,7 +495,6 @@ const ResumeBuilder = () => {
     setActiveErrorField(firstError ? firstError.fieldKey : '');
 
     if (firstError) {
-      setMode('edit');
       focusField(firstError.fieldKey);
       showNotice(`請先修正：${firstError.message}，完成後再${actionText}。`, 'error');
       return false;
@@ -480,15 +503,7 @@ const ResumeBuilder = () => {
     return true;
   };
 
-  const goPreview = () => {
-    if (isAdmin) {
-      showNotice('管理員模式僅提供 CRUD 管理，不提供預覽。', 'info');
-      return;
-    }
-    if (!ensureValidBeforeAction('預覽')) return;
-    setMode('preview');
-    window.scrollTo(0, 0);
-  };
+  const goPreview = () => {};
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -612,7 +627,8 @@ const ResumeBuilder = () => {
   // -------------------------------------------------------------
   // Word 匯出核心
   // -------------------------------------------------------------
-  const buildLegacyWordBlob = async () => {
+  const buildLegacyWordBlob = async (sourceData = data) => {
+    const formData = sourceData || data;
     const checked = '&#9745;';
     const unchecked = '&#9744;';
     const getCb = (condition) => condition ? checked : unchecked;
@@ -622,24 +638,24 @@ const ResumeBuilder = () => {
       ? `<img src="${safeLogoSrc}" alt="灃禾集團 Logo" style="max-width: 660px; width: 100%; height: auto; display: block; margin: 0 auto;" />`
       : '';
     const safeText = (value) => escapeHTMLWithBreaks(value);
-    const safePhotoSrc = data.photoDataUrl ? String(data.photoDataUrl).replace(/"/g, '&quot;') : '';
-    const educationOutput = getEducationForOutput(data.education);
-    const hasCertificateValue = hasValue(data.certificates);
-    const [fillYear = '', fillMonth = '', fillDay = ''] = (data.fillDate || '').split('-');
+    const safePhotoSrc = formData.photoDataUrl ? String(formData.photoDataUrl).replace(/"/g, '&quot;') : '';
+    const educationOutput = getEducationForOutput(formData.education);
+    const hasCertificateValue = hasValue(formData.certificates);
+    const [fillYear = '', fillMonth = '', fillDay = ''] = (formData.fillDate || '').split('-');
 
     const safeData = {
-      name: safeText(data.name),
-      birthDate: data.birthDate ? escapeHTML(data.birthDate.replace(/-/g, '/')) : '',
-      age: safeText(data.age),
-      arcNumber: safeText(data.arcNumber),
-      phone: safeText(data.phone),
-      email: safeText(data.email),
-      address: safeText(data.address),
+      name: safeText(formData.name),
+      birthDate: formData.birthDate ? escapeHTML(formData.birthDate.replace(/-/g, '/')) : '',
+      age: safeText(formData.age),
+      arcNumber: safeText(formData.arcNumber),
+      phone: safeText(formData.phone),
+      email: safeText(formData.email),
+      address: safeText(formData.address),
       school: safeText(educationOutput.map((edu) => edu.school || '').join('\n')),
       major: safeText(educationOutput.map((edu) => edu.major || '').join('\n')),
       gradDate: safeText(educationOutput.map((edu) => formatYearMonthForWordCell(edu.gradDate)).join('\n')),
-      certificates: safeText(data.certificates),
-      salary: safeText(data.salary),
+      certificates: safeText(formData.certificates),
+      salary: safeText(formData.salary),
       fillYear: escapeHTML(fillYear),
       fillMonth: escapeHTML(fillMonth),
       fillDay: escapeHTML(fillDay),
@@ -686,7 +702,7 @@ const ResumeBuilder = () => {
             <td class="center bold" style="width: 16%;">姓名</td>
             <td class="center" style="width: 24%;">${safeData.name}</td>
             <td class="center bold" style="width: 12%;">性別</td>
-            <td class="center" style="width: 28%;">${getCb(data.gender === '男')} 男 &nbsp;&nbsp;&nbsp;&nbsp; ${getCb(data.gender === '女')} 女</td>
+            <td class="center" style="width: 28%;">${getCb(formData.gender === '男')} 男 &nbsp;&nbsp;&nbsp;&nbsp; ${getCb(formData.gender === '女')} 女</td>
             <td rowspan="5" style="width: 20%; text-align: center; vertical-align: middle;">
               ${safePhotoSrc ? `<img src="${safePhotoSrc}" alt="個人照片" style="width: ${PHOTO_SIZE_CM}; height: ${PHOTO_SIZE_CM}; object-fit: cover; display: block; margin: 0 auto;" />` : ''}
             </td>
@@ -699,7 +715,7 @@ const ResumeBuilder = () => {
           </tr>
           <tr>
             <td class="center bold">婚姻狀況</td>
-            <td class="center">${getCb(data.maritalStatus === '未婚')} 未婚 &nbsp;&nbsp;&nbsp;&nbsp; ${getCb(data.maritalStatus === '已婚')} 已婚</td>
+            <td class="center">${getCb(formData.maritalStatus === '未婚')} 未婚 &nbsp;&nbsp;&nbsp;&nbsp; ${getCb(formData.maritalStatus === '已婚')} 已婚</td>
             <td class="center bold">居留證號</td>
             <td class="center">${safeData.arcNumber}</td>
           </tr>
@@ -731,7 +747,7 @@ const ResumeBuilder = () => {
             <td class="center bold">工作時間</td>
           </tr>
           ${[0, 1, 2, 3].map(i => {
-            const exp = data.experience[i] || { company: '', title: '', period: '' };
+            const exp = formData.experience[i] || { company: '', title: '', period: '' };
             return `<tr>
               <td class="center" height="28">${safeText(exp.company)}</td>
               <td colspan="2" class="center">${safeText(exp.title)}</td>
@@ -740,25 +756,25 @@ const ResumeBuilder = () => {
           }).join('')}
           <tr>
             <td class="center bold">語言能力</td>
-            <td colspan="4" class="center">${renderCbHTML(langOptions, data.languages, data.otherLanguage)}</td>
+            <td colspan="4" class="center">${renderCbHTML(langOptions, formData.languages, formData.otherLanguage)}</td>
           </tr>
           <tr>
             <td class="center bold">證照</td>
             <td class="center">${hasCertificateValue ? `<span style="color: blue; text-decoration: underline;">${safeData.certificates}</span>` : ''}</td>
             <td class="center bold">交通</td>
-            <td colspan="2" style="padding-left: 10px;">${renderCbHTML(transOptions, data.transportation, data.otherTransport)}</td>
+            <td colspan="2" style="padding-left: 10px;">${renderCbHTML(transOptions, formData.transportation, formData.otherTransport)}</td>
           </tr>
           <tr>
             <td class="center bold">可接受工作地點<br><br><span style="font-weight: normal; font-size: 10pt;">(可複選)</span></td>
-            <td colspan="4" style="padding-left: 10px;">${renderCbHTML(locOptions, data.locations)}</td>
+            <td colspan="4" style="padding-left: 10px;">${renderCbHTML(locOptions, formData.locations)}</td>
           </tr>
           <tr>
             <td class="center bold">希望工作內容<br><br><span style="font-weight: normal; font-size: 10pt;">(可複選)</span></td>
-            <td colspan="4" style="padding-left: 10px;">${renderCbHTML(jobOptions, data.jobTypes, data.otherJobType)}</td>
+            <td colspan="4" style="padding-left: 10px;">${renderCbHTML(jobOptions, formData.jobTypes, formData.otherJobType)}</td>
           </tr>
           <tr>
             <td class="center bold">可以接受工作時間<br><br><span style="font-weight: normal; font-size: 10pt;">(可複選)</span></td>
-            <td colspan="4" style="padding-left: 10px;">${renderCbHTML(timeOptions, data.workHours)}</td>
+            <td colspan="4" style="padding-left: 10px;">${renderCbHTML(timeOptions, formData.workHours)}</td>
           </tr>
           <tr>
             <td class="center bold">希望待遇</td>
@@ -801,7 +817,8 @@ const ResumeBuilder = () => {
     downloadBlob(blob, getExportFilename(data.name, data.fillDate));
   };
 
-  const buildTemplateWordBlob = async () => {
+  const buildTemplateWordBlob = async (sourceData = data) => {
+    const formData = sourceData || data;
     const JSZip = await loadJSZipModule();
 
     const templateCandidates = getWordTemplateCandidates();
@@ -831,8 +848,8 @@ const ResumeBuilder = () => {
     }
 
     let photoRelationshipId = '';
-    if (data.photoDataUrl) {
-      photoRelationshipId = await injectPhotoIntoWordZip(zip, data.photoDataUrl);
+    if (formData.photoDataUrl) {
+      photoRelationshipId = await injectPhotoIntoWordZip(zip, formData.photoDataUrl);
     }
 
     const documentXml = await documentXmlFile.async('string');
@@ -842,7 +859,7 @@ const ResumeBuilder = () => {
       throw new Error('模板 XML 解析失敗');
     }
 
-    fillResumeTemplateXml(xmlDocument, data, { photoRelationshipId });
+    fillResumeTemplateXml(xmlDocument, formData, { photoRelationshipId });
 
     const serializedXml = new XMLSerializer().serializeToString(xmlDocument);
     zip.file('word/document.xml', serializedXml);
@@ -909,18 +926,30 @@ const ResumeBuilder = () => {
     setIsSendingEmail(true);
 
     try {
+      const savedRecord = await upsertResumeRecord();
+      if (!savedRecord) {
+        throw new Error('送出前自動儲存失敗');
+      }
+
+      const latestData = savedRecord?.formData ? normalizeResumeData(savedRecord.formData) : data;
+      const renderData = {
+        ...latestData,
+        // 當前頁面若剛上傳新照片，優先使用本地 Data URL，避免跨網域讀圖失敗。
+        photoDataUrl: data.photoDataUrl || latestData.photoDataUrl,
+      };
+
       let attachmentBlob;
       let attachmentFilename;
       let attachmentMimeType;
 
       try {
-        attachmentBlob = await buildTemplateWordBlob();
-        attachmentFilename = getExportFilename(data.name, data.fillDate).replace(/\.doc$/i, '.docx');
+        attachmentBlob = await buildTemplateWordBlob(renderData);
+        attachmentFilename = getExportFilename(renderData.name, renderData.fillDate).replace(/\.doc$/i, '.docx');
         attachmentMimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
       } catch (error) {
         console.error('模板產生失敗，改用相容模式寄送：', error);
-        attachmentBlob = await buildLegacyWordBlob();
-        attachmentFilename = getExportFilename(data.name, data.fillDate);
+        attachmentBlob = await buildLegacyWordBlob(renderData);
+        attachmentFilename = getExportFilename(renderData.name, renderData.fillDate);
         attachmentMimeType = 'application/msword';
         showNotice('模板產生失敗，已改用相容 .doc 格式寄送。', 'error');
       }
@@ -938,10 +967,10 @@ const ResumeBuilder = () => {
           attachmentBase64,
           attachmentFilename,
           attachmentMimeType,
-          applicantName: data.name,
-          applicantEmail: data.email,
-          applicantPhone: data.phone,
-          fillDate: data.fillDate,
+          applicantName: renderData.name,
+          applicantEmail: renderData.email,
+          applicantPhone: renderData.phone,
+          fillDate: renderData.fillDate,
           submitterEmail: authUser.email || '',
           submitterName: authUser.displayName || '',
         }),
@@ -960,6 +989,7 @@ const ResumeBuilder = () => {
       }
 
       showNotice('已成功送出，Word 附件已寄到指定信箱。', 'info');
+      setData(latestData);
     } catch (error) {
       console.error('Send email failed:', error);
       const errorMessage = error instanceof Error ? error.message : '請稍後重試。';
@@ -969,8 +999,6 @@ const ResumeBuilder = () => {
     }
   };
 
-  const educationForOutput = getEducationForOutput(data.education);
-  const hasCertificates = hasValue(data.certificates);
   const adultMaxBirthDate = getAdultMaxBirthDate();
   const isAuthConfigured = isFirebaseAuthConfigured();
 
@@ -1015,34 +1043,44 @@ const ResumeBuilder = () => {
     );
   }
 
+  if (isAdminRoute && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-100 font-sans text-gray-800">
+        <ResumeStyles />
+        <NoticeBanner notice={notice} />
+        <div className="max-w-xl mx-auto px-4 py-16">
+          <div className="bg-white rounded-2xl shadow-sm border border-red-200 p-8 text-center">
+            <h1 className="text-2xl font-bold text-red-700 mb-3">無管理權限</h1>
+            <p className="text-gray-600">此帳號不在管理員白名單，請改用一般填寫頁面。</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 font-sans text-gray-800 pb-12">
       <ResumeStyles />
       <TopNav
-        mode={mode}
+        isAdmin={isAdmin}
+        isAdminRoute={isAdminRoute}
         onNewDraft={createNewDraft}
-        onSaveDraft={saveDraft}
         onLoadDrafts={openDraftManager}
-        onEdit={() => setMode('edit')}
-        onPreview={goPreview}
         onSendEmail={sendResumeByEmail}
         isSendingEmail={isSendingEmail}
-        isSavingDraft={isSavingDraft}
-        canSaveDraft={!isAdmin || Boolean(currentDraftId)}
         isLoadingDrafts={isLoadingDrafts}
         authUser={authUser}
-        isAdmin={isAdmin}
         isAuthBusy={isAuthBusy}
         isAuthConfigured={isAuthConfigured}
         onLogin={handleLogin}
         onLogout={handleLogout}
       />
       <NoticeBanner notice={notice} />
-      {!isAdmin && (
+      {!isAdminRoute && (
         <DraftManager
           isOpen={isDraftManagerOpen}
           records={draftRecords}
-          isAdmin={isAdmin}
+          isAdmin={false}
           isLoading={isLoadingDrafts}
           deletingId={deletingDraftId}
           onClose={() => setIsDraftManagerOpen(false)}
@@ -1053,27 +1091,31 @@ const ResumeBuilder = () => {
       )}
 
       <div className="max-w-5xl mx-auto mt-8 px-4">
-        {isAdmin ? (
+        {isAdminRoute ? (
           <div className="space-y-6">
             <AdminRecordPanel
-              filters={adminFilters}
-              onFilterChange={handleAdminFilterChange}
+              query={adminQuery}
+              onQueryChange={handleAdminQueryChange}
               onSearch={handleAdminSearch}
               onReset={handleAdminReset}
               records={draftRecords}
               isLoading={isLoadingDrafts}
               deletingId={deletingDraftId}
-              currentDraftId={currentDraftId}
-              onApply={applyDraftRecord}
+              editingRecordId={currentDraftId}
+              onView={handleAdminViewRecord}
+              onEdit={handleAdminEditRecord}
               onDelete={deleteDraftRecord}
             />
-            {!currentDraftId && (
-              <div className="bg-white border border-blue-100 rounded-2xl shadow-sm p-8 text-center">
-                <h2 className="text-2xl font-bold text-blue-700 mb-2">管理員 CRUD 模式</h2>
-                <p className="text-gray-600">請先在上方列表選一筆資料，點「載入編修」後即可修改。</p>
-              </div>
-            )}
-            {currentDraftId && (
+            <AdminEditDrawer
+              isOpen={isAdminDrawerOpen && Boolean(currentDraftId)}
+              title={data.name ? `編輯履歷：${data.name}` : '編輯履歷'}
+              isSaving={isSavingDraft}
+              onClose={() => {
+                setIsAdminDrawerOpen(false);
+                setCurrentDraftId('');
+              }}
+              onSave={saveDraft}
+            >
               <EditMode
                 data={data}
                 validationErrors={validationErrors}
@@ -1093,9 +1135,14 @@ const ResumeBuilder = () => {
                 onCheckboxChange={handleCheckboxChange}
                 showPreviewAction={false}
               />
-            )}
+            </AdminEditDrawer>
+            <AdminViewModal
+              isOpen={Boolean(viewingRecord)}
+              data={viewingRecord}
+              onClose={() => setViewingRecord(null)}
+            />
           </div>
-        ) : mode === 'edit' ? (
+        ) : (
           <EditMode
             data={data}
             validationErrors={validationErrors}
@@ -1113,14 +1160,7 @@ const ResumeBuilder = () => {
             onRemoveExperience={removeExperience}
             onPreview={goPreview}
             onCheckboxChange={handleCheckboxChange}
-            showPreviewAction
-          />
-        ) : (
-          <PreviewMode
-            data={data}
-            educationForOutput={educationForOutput}
-            hasCertificates={hasCertificates}
-            previewScale={FIXED_PREVIEW_SCALE}
+            showPreviewAction={false}
           />
         )}
       </div>

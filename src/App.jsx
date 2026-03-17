@@ -88,6 +88,12 @@ const getApiEndpoint = (path) => {
   return apiBaseUrl ? `${apiBaseUrl.replace(/\/$/, '')}${path}` : path;
 };
 
+const parseAdminEmails = () =>
+  String(import.meta.env.VITE_ADMIN_EMAILS || '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
 const ResumeBuilder = () => {
   const FIXED_PREVIEW_SCALE = 0.8;
   const [data, setData] = useState(() => createBlankResumeData());
@@ -106,6 +112,9 @@ const ResumeBuilder = () => {
   const [authUser, setAuthUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
+  const adminEmails = parseAdminEmails();
+  const authEmail = String(authUser?.email || '').trim().toLowerCase();
+  const isAdmin = authEmail ? adminEmails.includes(authEmail) : false;
 
   const clearValidationErrors = () => {
     if (validationErrors.length > 0 || activeErrorField) {
@@ -215,6 +224,10 @@ const ResumeBuilder = () => {
       showNotice('請先登入後再儲存草稿。', 'error');
       return;
     }
+    if (isAdmin && !currentDraftId) {
+      showNotice('管理員請先載入既有履歷後再儲存修改。', 'error');
+      return;
+    }
 
     setIsSavingDraft(true);
     try {
@@ -299,6 +312,10 @@ const ResumeBuilder = () => {
   };
 
   const createNewDraft = () => {
+    if (isAdmin) {
+      showNotice('管理員模式不提供建立新履歷，請從「管理履歷資料」載入後編修。', 'error');
+      return;
+    }
     clearValidationErrors();
     setData(createBlankResumeData());
     setCurrentDraftId('');
@@ -416,6 +433,10 @@ const ResumeBuilder = () => {
   };
 
   const goPreview = () => {
+    if (isAdmin) {
+      showNotice('管理員模式僅提供 CRUD 管理，不提供預覽。', 'info');
+      return;
+    }
     if (!ensureValidBeforeAction('預覽')) return;
     setMode('preview');
     window.scrollTo(0, 0);
@@ -532,6 +553,10 @@ const ResumeBuilder = () => {
   };
 
   const printDocument = () => {
+    if (!isAdmin) {
+      showNotice('僅管理員可使用列印功能。', 'error');
+      return;
+    }
     if (!ensureValidBeforeAction('列印')) return;
     window.print();
   };
@@ -718,6 +743,10 @@ const ResumeBuilder = () => {
   };
 
   const exportToWordLegacy = async (skipValidation = false) => {
+    if (!isAdmin) {
+      showNotice('僅管理員可使用 Word 匯出功能。', 'error');
+      return;
+    }
     if (!skipValidation && !ensureValidBeforeAction('匯出 Word')) return;
 
     const blob = await buildLegacyWordBlob();
@@ -777,6 +806,10 @@ const ResumeBuilder = () => {
   };
 
   const exportToWord = async () => {
+    if (!isAdmin) {
+      showNotice('僅管理員可使用 Word 匯出功能。', 'error');
+      return;
+    }
     if (isExportingWord) return;
     if (!ensureValidBeforeAction('匯出 Word')) return;
 
@@ -944,14 +977,12 @@ const ResumeBuilder = () => {
         onLoadDrafts={openDraftManager}
         onEdit={() => setMode('edit')}
         onPreview={goPreview}
-        onExportWord={exportToWord}
         onSendEmail={sendResumeByEmail}
-        onPrint={printDocument}
-        isExportingWord={isExportingWord}
         isSendingEmail={isSendingEmail}
         isSavingDraft={isSavingDraft}
         isLoadingDrafts={isLoadingDrafts}
         authUser={authUser}
+        isAdmin={isAdmin}
         isAuthBusy={isAuthBusy}
         isAuthConfigured={isAuthConfigured}
         onLogin={handleLogin}
@@ -961,6 +992,7 @@ const ResumeBuilder = () => {
       <DraftManager
         isOpen={isDraftManagerOpen}
         records={draftRecords}
+        isAdmin={isAdmin}
         isLoading={isLoadingDrafts}
         deletingId={deletingDraftId}
         onClose={() => setIsDraftManagerOpen(false)}
@@ -970,7 +1002,14 @@ const ResumeBuilder = () => {
       />
 
       <div className="max-w-5xl mx-auto mt-8 px-4">
-        {mode === 'edit' ? (
+        {isAdmin && !currentDraftId ? (
+          <div className="bg-white border border-blue-100 rounded-2xl shadow-sm p-8 text-center">
+            <h2 className="text-2xl font-bold text-blue-700 mb-2">管理員 CRUD 模式</h2>
+            <p className="text-gray-600">
+              請先點上方「管理履歷資料」載入一筆履歷，再進行修改或刪除。
+            </p>
+          </div>
+        ) : mode === 'edit' ? (
           <EditMode
             data={data}
             validationErrors={validationErrors}

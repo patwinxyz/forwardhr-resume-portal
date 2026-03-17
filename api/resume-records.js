@@ -2,6 +2,12 @@ import { getFirestoreDb, verifyFirebaseIdToken } from './_lib/firebaseAdmin.js';
 
 const COLLECTION_NAME = 'resumeRecords';
 const MAX_FORMDATA_BYTES = 900000;
+const ADMIN_EMAILS = new Set(
+  String(process.env.ADMIN_EMAILS || process.env.VITE_ADMIN_EMAILS || '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean),
+);
 
 const getBearerToken = (req) => {
   const authHeader = req.headers?.authorization || req.headers?.Authorization || '';
@@ -68,9 +74,19 @@ const authenticateRequest = async (req, res) => {
   }
 };
 
-const listRecords = async (req, res, authUser) => {
+const isAdminUser = (authUser) => {
+  const email = String(authUser?.email || '')
+    .trim()
+    .toLowerCase();
+  return Boolean(email) && ADMIN_EMAILS.has(email);
+};
+
+const listRecords = async (req, res, authUser, isAdmin) => {
   const db = getFirestoreDb();
-  const snapshot = await db.collection(COLLECTION_NAME).where('ownerUid', '==', authUser.uid).get();
+  const query = isAdmin
+    ? db.collection(COLLECTION_NAME)
+    : db.collection(COLLECTION_NAME).where('ownerUid', '==', authUser.uid);
+  const snapshot = await query.get();
 
   const records = snapshot.docs
     .map(normalizeRecord)
@@ -79,7 +95,7 @@ const listRecords = async (req, res, authUser) => {
   return res.status(200).json({ ok: true, records });
 };
 
-const upsertRecord = async (req, res, authUser) => {
+const upsertRecord = async (req, res, authUser, isAdmin) => {
   const db = getFirestoreDb();
   const body = parseBody(req);
   const formData = body?.formData;
@@ -114,11 +130,23 @@ const upsertRecord = async (req, res, authUser) => {
       return res.status(404).json({ ok: false, message: 'Record not found' });
     }
     const existing = snapshot.data() || {};
-    if (existing.ownerUid !== authUser.uid) {
+    if (!isAdmin && existing.ownerUid !== authUser.uid) {
       return res.status(403).json({ ok: false, message: 'Forbidden' });
     }
-    await docRef.update(payload);
+    await docRef.update(
+      isAdmin
+        ? payload
+        : {
+            ...payload,
+            ownerUid: authUser.uid,
+            ownerEmail: authUser.email || '',
+            ownerName: authUser.name || '',
+          },
+    );
   } else {
+    if (isAdmin) {
+      return res.status(403).json({ ok: false, message: '管理員僅可編修既有資料，無法新增草稿' });
+    }
     docRef = db.collection(COLLECTION_NAME).doc();
     await docRef.set({
       ...payload,
@@ -130,7 +158,7 @@ const upsertRecord = async (req, res, authUser) => {
   return res.status(200).json({ ok: true, record: normalizeRecord(saved) });
 };
 
-const deleteRecord = async (req, res, authUser) => {
+const deleteRecord = async (req, res, authUser, isAdmin) => {
   const db = getFirestoreDb();
   const recordId = toSafeText(req.query?.id);
   if (!recordId) {
@@ -144,7 +172,7 @@ const deleteRecord = async (req, res, authUser) => {
   }
 
   const existing = snapshot.data() || {};
-  if (existing.ownerUid !== authUser.uid) {
+  if (!isAdmin && existing.ownerUid !== authUser.uid) {
     return res.status(403).json({ ok: false, message: 'Forbidden' });
   }
 
@@ -160,11 +188,12 @@ export default async function handler(req, res) {
 
   const authUser = await authenticateRequest(req, res);
   if (!authUser) return;
+  const isAdmin = isAdminUser(authUser);
 
   try {
-    if (req.method === 'GET') return await listRecords(req, res, authUser);
-    if (req.method === 'POST') return await upsertRecord(req, res, authUser);
-    return await deleteRecord(req, res, authUser);
+    if (req.method === 'GET') return await listRecords(req, res, authUser, isAdmin);
+    if (req.method === 'POST') return await upsertRecord(req, res, authUser, isAdmin);
+    return await deleteRecord(req, res, authUser, isAdmin);
   } catch (error) {
     console.error('resume-records API failed:', error);
     return res.status(500).json({ ok: false, message: error?.message || 'Server error' });

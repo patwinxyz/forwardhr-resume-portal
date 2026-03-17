@@ -4,6 +4,7 @@ import { Loader2, RefreshCw, Trash2, X } from 'lucide-react';
 const DraftManager = ({
   isOpen,
   records,
+  isAdmin,
   isLoading,
   deletingId,
   onClose,
@@ -17,7 +18,7 @@ const DraftManager = ({
     <div className="fixed inset-0 z-30 bg-black/30 flex items-center justify-center p-4 no-print">
       <div className="w-full max-w-3xl bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-          <h3 className="font-bold text-gray-800 text-lg">我的草稿</h3>
+          <h3 className="font-bold text-gray-800 text-lg">{isAdmin ? '履歷資料管理' : '我的草稿'}</h3>
           <div className="flex items-center gap-2">
             <button
               onClick={onRefresh}
@@ -48,6 +49,7 @@ const DraftManager = ({
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
                   <th className="text-left px-4 py-3">標題</th>
+                  {isAdmin && <th className="text-left px-4 py-3">填寫者</th>}
                   <th className="text-left px-4 py-3">更新時間</th>
                   <th className="text-right px-4 py-3">操作</th>
                 </tr>
@@ -56,6 +58,7 @@ const DraftManager = ({
                 {records.map((record) => (
                   <tr key={record.id} className="border-t border-gray-100">
                     <td className="px-4 py-3 text-gray-800">{record.title || '未命名草稿'}</td>
+                    {isAdmin && <td className="px-4 py-3 text-gray-600">{record.ownerEmail || '-'}</td>}
                     <td className="px-4 py-3 text-gray-600">{record.updatedAt || '-'}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">

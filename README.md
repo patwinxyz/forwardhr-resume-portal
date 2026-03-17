@@ -5,6 +5,7 @@
 - 履歷填寫、預覽、列印、Word 匯出
 - Google 登入（Firebase Auth）
 - 送出時將 Word 附件寄送到指定信箱（Resend + `/api/send-resume`）
+- 權限切分：一般使用者可填表與送出；管理員模式只提供履歷 CRUD 管理
 
 ## 專案結構
 
@@ -40,6 +41,15 @@ copy .env.example .env
 ```
 
 3. 填入 `.env` 內容（Firebase + Resend）
+
+管理員白名單設定（前端）：
+- `VITE_ADMIN_EMAILS`：以逗號分隔管理員 email，例如：
+  - `VITE_ADMIN_EMAILS=patwinxyz@gmail.com,admin@forwardhrm.com.tw`
+- 白名單登入後會進入「管理員 CRUD 模式」。
+
+管理員白名單設定（後端）：
+- `ADMIN_EMAILS`：與 `VITE_ADMIN_EMAILS` 使用相同清單。
+- 用於後端 API 權限判斷（管理員可讀取全部資料並刪除/更新）。
 
 4. 啟動前端
 ```bash
@@ -83,6 +93,8 @@ npm run dev
 - `VITE_FIREBASE_AUTH_DOMAIN`
 - `VITE_FIREBASE_PROJECT_ID`
 - `VITE_FIREBASE_APP_ID`
+- `VITE_ADMIN_EMAILS`（管理員 email 白名單，逗號分隔）
+- `ADMIN_EMAILS`（後端管理員白名單，建議與 `VITE_ADMIN_EMAILS` 相同）
 - `RESEND_API_KEY`
 - `MAIL_FROM`
 - `MAIL_TO`

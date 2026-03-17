@@ -1,21 +1,19 @@
 import React from 'react';
-import { Download, Edit, FileText, FolderOpen, Loader2, LogIn, LogOut, PlusCircle, Printer, Save, Send } from 'lucide-react';
+import { Edit, FileText, FolderOpen, Loader2, LogIn, LogOut, PlusCircle, Save, Send } from 'lucide-react';
 
 const TopNav = ({
   mode,
   onEdit,
   onPreview,
-  onExportWord,
   onSendEmail,
   onNewDraft,
   onSaveDraft,
   onLoadDrafts,
-  onPrint,
-  isExportingWord,
   isSendingEmail,
   isSavingDraft,
   isLoadingDrafts,
   authUser,
+  isAdmin,
   isAuthBusy,
   isAuthConfigured,
   onLogin,
@@ -62,49 +60,74 @@ const TopNav = ({
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={onNewDraft}
-            className="flex items-center gap-1 px-3 py-2 rounded-md font-medium text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <PlusCircle className="w-4 h-4" /> 新建
-          </button>
-          <button
-            onClick={onSaveDraft}
-            disabled={isSavingDraft}
-            className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-              isSavingDraft ? 'bg-emerald-300 text-white cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'
-            }`}
-          >
-            {isSavingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 儲存草稿
-          </button>
-          <button
-            onClick={onLoadDrafts}
-            disabled={isLoadingDrafts}
-            className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-              isLoadingDrafts ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-slate-600 text-white hover:bg-slate-700'
-            }`}
-          >
-            {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />} 載入草稿
-          </button>
-          <button
-            onClick={onEdit}
-            className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-              mode === 'edit' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Edit className="w-4 h-4" /> 編輯資料
-          </button>
-          <button
-            onClick={onPreview}
-            className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-              mode === 'preview' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <FileText className="w-4 h-4" /> 預覽
-          </button>
+          {isAdmin ? (
+            <>
+              <button
+                onClick={onLoadDrafts}
+                disabled={isLoadingDrafts}
+                className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
+                  isLoadingDrafts ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-slate-600 text-white hover:bg-slate-700'
+                }`}
+              >
+                {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />} 管理履歷資料
+              </button>
+              <button
+                onClick={onSaveDraft}
+                disabled={isSavingDraft}
+                className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
+                  isSavingDraft ? 'bg-emerald-300 text-white cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                }`}
+              >
+                {isSavingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 儲存修改
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onNewDraft}
+                className="flex items-center gap-1 px-3 py-2 rounded-md font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <PlusCircle className="w-4 h-4" /> 新建
+              </button>
+              <button
+                onClick={onSaveDraft}
+                disabled={isSavingDraft}
+                className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
+                  isSavingDraft ? 'bg-emerald-300 text-white cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                }`}
+              >
+                {isSavingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 儲存草稿
+              </button>
+              <button
+                onClick={onLoadDrafts}
+                disabled={isLoadingDrafts}
+                className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
+                  isLoadingDrafts ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-slate-600 text-white hover:bg-slate-700'
+                }`}
+              >
+                {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />} 載入草稿
+              </button>
+              <button
+                onClick={onEdit}
+                className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
+                  mode === 'edit' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Edit className="w-4 h-4" /> 編輯資料
+              </button>
+              <button
+                onClick={onPreview}
+                className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
+                  mode === 'preview' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <FileText className="w-4 h-4" /> 預覽
+              </button>
+            </>
+          )}
         </div>
 
-        {mode === 'preview' && (
+        {mode === 'preview' && !isAdmin && (
           <div className="flex flex-wrap gap-2 sm:justify-end">
             <button
               onClick={onSendEmail}
@@ -114,21 +137,6 @@ const TopNav = ({
               }`}
             >
               <Send className="w-4 h-4" /> {isSendingEmail ? '送出中...' : '送出寄送'}
-            </button>
-            <button
-              onClick={onExportWord}
-              disabled={isExportingWord}
-              className={`flex items-center gap-1 px-3 py-2 text-white rounded-md font-medium shadow-sm transition-colors ${
-                isExportingWord ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
-              }`}
-            >
-              <Download className="w-4 h-4" /> {isExportingWord ? '匯出中...' : '匯出 Word'}
-            </button>
-            <button
-              onClick={onPrint}
-              className="flex items-center gap-1 px-3 py-2 bg-orange-600 text-white rounded-md font-medium hover:bg-orange-700 shadow-sm transition-colors"
-            >
-              <Printer className="w-4 h-4" /> 列印 / PDF
             </button>
           </div>
         )}

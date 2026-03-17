@@ -241,6 +241,7 @@ const listRecords = async (req, res, authUser, isAdmin) => {
 
   const records = snapshot.docs
     .map(normalizeRecord)
+    .filter((record) => (isAdmin ? true : record.ownerUid === authUser.uid))
     .filter((record) => matchRecordByKeywords(record, filters))
     .sort((a, b) => toUpdatedTimestamp(b.updatedAt) - toUpdatedTimestamp(a.updatedAt));
 

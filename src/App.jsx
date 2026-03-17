@@ -205,6 +205,7 @@ const ResumeBuilder = () => {
   const [isDraftManagerOpen, setIsDraftManagerOpen] = useState(false);
   const [draftRecords, setDraftRecords] = useState([]);
   const [currentDraftId, setCurrentDraftId] = useState('');
+  const [selectedAdminRecordId, setSelectedAdminRecordId] = useState('');
   const [adminQuery, setAdminQuery] = useState('');
   const [isAdminDrawerOpen, setIsAdminDrawerOpen] = useState(false);
   const [viewingRecord, setViewingRecord] = useState(null);
@@ -246,6 +247,12 @@ const ResumeBuilder = () => {
     window.location.replace('/admin');
   }, [authReady, authUser, isAdmin, isAdminRoute]);
 
+  useEffect(() => {
+    if (!authReady || !authUser || !isAdminRoute || isAdmin) return;
+    if (typeof window === 'undefined') return;
+    window.location.replace('/');
+  }, [authReady, authUser, isAdminRoute, isAdmin]);
+
   const handleLogin = async () => {
     if (!isFirebaseAuthConfigured()) {
       showNotice('尚未設定 Firebase 登入，請先設定環境變數。', 'error');
@@ -269,6 +276,7 @@ const ResumeBuilder = () => {
     try {
       await logoutAuthUser();
       setCurrentDraftId('');
+      setSelectedAdminRecordId('');
       setIsAdminDrawerOpen(false);
       setViewingRecord(null);
       setDraftRecords([]);
@@ -323,6 +331,12 @@ const ResumeBuilder = () => {
     try {
       const records = await fetchDraftRecords(filters);
       setDraftRecords(sortRecordsByNewest(records));
+      if (isAdmin && selectedAdminRecordId && !records.some((record) => record.id === selectedAdminRecordId)) {
+        setSelectedAdminRecordId('');
+        if (!isAdminDrawerOpen) {
+          setCurrentDraftId('');
+        }
+      }
       if (openModal) {
         setIsDraftManagerOpen(true);
       }
@@ -410,9 +424,35 @@ const ResumeBuilder = () => {
     });
   };
 
+  const loadAdminRecordForAction = (record, { openDrawer = false, showLoadedNotice = false } = {}) => {
+    if (!record?.formData || typeof record.formData !== 'object') {
+      showNotice('履歷資料格式不正確。', 'error');
+      return false;
+    }
+
+    clearValidationErrors();
+    const nextData = normalizeResumeData(record.formData);
+    const recordId = record.id || '';
+    setData(nextData);
+    setCurrentDraftId(recordId);
+    setSelectedAdminRecordId(recordId);
+    if (openDrawer) {
+      setIsAdminDrawerOpen(true);
+    }
+    if (showLoadedNotice) {
+      showNotice(`已載入履歷：${record.title || '未命名草稿'}`, 'info');
+    }
+    return true;
+  };
+
   const applyDraftRecord = (record) => {
     if (!record?.formData || typeof record.formData !== 'object') {
       showNotice('草稿資料格式不正確。', 'error');
+      return;
+    }
+
+    if (isAdmin) {
+      loadAdminRecordForAction(record, { openDrawer: true, showLoadedNotice: true });
       return;
     }
 
@@ -420,12 +460,8 @@ const ResumeBuilder = () => {
     const nextData = normalizeResumeData(record.formData);
     setData(nextData);
     setCurrentDraftId(record.id || '');
-    if (!isAdmin) {
-      setIsDraftManagerOpen(false);
-    } else {
-      setIsAdminDrawerOpen(true);
-    }
-    showNotice(`已載入${isAdmin ? '履歷' : '草稿'}：${record.title || '未命名草稿'}`, 'info');
+    setIsDraftManagerOpen(false);
+    showNotice(`已載入草稿：${record.title || '未命名草稿'}`, 'info');
   };
 
   const deleteDraftRecord = async (recordId) => {
@@ -448,6 +484,9 @@ const ResumeBuilder = () => {
         setCurrentDraftId('');
         setIsAdminDrawerOpen(false);
       }
+      if (selectedAdminRecordId === recordId) {
+        setSelectedAdminRecordId('');
+      }
       setViewingRecord(null);
       showNotice('草稿已刪除。', 'info');
     } catch (error) {
@@ -466,6 +505,7 @@ const ResumeBuilder = () => {
     clearValidationErrors();
     setData(createBlankResumeData());
     setCurrentDraftId('');
+    setSelectedAdminRecordId('');
     showNotice('已建立新表單。', 'info');
   };
 
@@ -488,8 +528,19 @@ const ResumeBuilder = () => {
   };
 
   const handleAdminEditRecord = (record) => {
-    applyDraftRecord(record);
-    setIsAdminDrawerOpen(true);
+    loadAdminRecordForAction(record, { openDrawer: true, showLoadedNotice: true });
+  };
+
+  const handleAdminSelectRecord = (record, checked) => {
+    if (!checked) {
+      setSelectedAdminRecordId('');
+      if (!isAdminDrawerOpen) {
+        setCurrentDraftId('');
+      }
+      return;
+    }
+
+    loadAdminRecordForAction(record, { openDrawer: false, showLoadedNotice: false });
   };
 
   const focusField = (fieldKey) => {
@@ -1154,19 +1205,8 @@ const ResumeBuilder = () => {
     );
   }
 
-  if (isAdminRoute && !isAdmin) {
-    return (
-      <div className="min-h-screen bg-gray-100 font-sans text-gray-800">
-        <ResumeStyles />
-        <NoticeBanner notice={notice} />
-        <div className="max-w-xl mx-auto px-4 py-16">
-          <div className="bg-white rounded-2xl shadow-sm border border-red-200 p-8 text-center">
-            <h1 className="text-2xl font-bold text-red-700 mb-3">無管理權限</h1>
-            <p className="text-gray-600">此帳號不在管理員白名單，請改用一般填寫頁面。</p>
-          </div>
-        </div>
-      </div>
-    );
+  if (isAdminRoute && authReady && authUser && !isAdmin) {
+    return null;
   }
 
   return (
@@ -1217,6 +1257,8 @@ const ResumeBuilder = () => {
               isLoading={isLoadingDrafts}
               deletingId={deletingDraftId}
               editingRecordId={currentDraftId}
+              selectedRecordId={selectedAdminRecordId}
+              onSelectRecord={handleAdminSelectRecord}
               onView={handleAdminViewRecord}
               onEdit={handleAdminEditRecord}
               onDelete={deleteDraftRecord}
@@ -1229,7 +1271,7 @@ const ResumeBuilder = () => {
               canExport={Boolean(currentDraftId)}
               onClose={() => {
                 setIsAdminDrawerOpen(false);
-                setCurrentDraftId('');
+                setCurrentDraftId(selectedAdminRecordId || '');
               }}
               onSave={saveDraft}
               onExportWord={exportToWord}

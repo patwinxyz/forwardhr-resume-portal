@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import AdminEditDrawer from './components/AdminEditDrawer';
 import AdminRecordPanel from './components/AdminRecordPanel';
 import AdminViewModal from './components/AdminViewModal';
-import DraftManager from './components/DraftManager';
 import EditMode from './components/EditMode';
 import NoticeBanner from './components/NoticeBanner';
 import PreviewMode from './components/PreviewMode';
@@ -204,7 +203,6 @@ const ResumeBuilder = () => {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
   const [deletingDraftId, setDeletingDraftId] = useState('');
-  const [isDraftManagerOpen, setIsDraftManagerOpen] = useState(false);
   const [draftRecords, setDraftRecords] = useState([]);
   const [currentDraftId, setCurrentDraftId] = useState('');
   const [selectedAdminRecordId, setSelectedAdminRecordId] = useState('');
@@ -217,6 +215,7 @@ const ResumeBuilder = () => {
   const [authReady, setAuthReady] = useState(false);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const hasBootstrappedUserResumeRef = useRef(false);
   const previewSectionRef = useRef(null);
   const adminEmails = parseAdminEmails();
   const authEmail = String(authUser?.email || '').trim().toLowerCase();
@@ -257,6 +256,10 @@ const ResumeBuilder = () => {
     window.location.replace('/');
   }, [authReady, authUser, isAdminRoute, isAdmin]);
 
+  useEffect(() => {
+    hasBootstrappedUserResumeRef.current = false;
+  }, [authUser?.uid, isAdminRoute, isAdmin]);
+
   const handleLogin = async () => {
     if (!isFirebaseAuthConfigured()) {
       showNotice('尚未設定 Firebase 登入，請先設定環境變數。', 'error');
@@ -284,7 +287,7 @@ const ResumeBuilder = () => {
       setIsAdminDrawerOpen(false);
       setViewingRecord(null);
       setDraftRecords([]);
-      setIsDraftManagerOpen(false);
+      hasBootstrappedUserResumeRef.current = false;
       showNotice('已登出。', 'info');
     } catch (error) {
       console.error('Logout failed:', error);
@@ -320,12 +323,12 @@ const ResumeBuilder = () => {
     });
     const result = await parseResponsePayload(response);
     if (!response.ok || !result?.ok) {
-      throw new Error(result?.message || `草稿查詢失敗（${response.status}）`);
+      throw new Error(result?.message || `履歷查詢失敗（${response.status}）`);
     }
     return sortRecordsByNewest(Array.isArray(result.records) ? result.records : []);
   };
 
-  const loadRecords = async (filters = {}, { openModal = false } = {}) => {
+  const loadRecords = async (filters = {}) => {
     if (!authUser) {
       showNotice('請先登入後再載入資料。', 'error');
       return;
@@ -341,9 +344,6 @@ const ResumeBuilder = () => {
           setCurrentDraftId('');
         }
       }
-      if (openModal) {
-        setIsDraftManagerOpen(true);
-      }
     } catch (error) {
       console.error('Load records failed:', error);
       showNotice(`載入資料失敗：${error?.message || '請稍後再試。'}`, 'error');
@@ -357,17 +357,45 @@ const ResumeBuilder = () => {
     void loadRecords({ q: adminQuery });
   }, [authUser, isAdmin, isAdminRoute]);
 
-  const openDraftManager = async () => {
-    if (isAdmin && isAdminRoute) {
-      await loadRecords({ q: adminQuery });
-      return;
-    }
-    await loadRecords({}, { openModal: true });
+  const refreshAdminRecords = async () => {
+    if (!isAdmin || !isAdminRoute) return;
+    await loadRecords({ q: adminQuery });
   };
+
+  useEffect(() => {
+    if (!authReady || !authUser || isAdmin || isAdminRoute) return;
+    if (hasBootstrappedUserResumeRef.current) return;
+
+    hasBootstrappedUserResumeRef.current = true;
+    void (async () => {
+      setIsLoadingDrafts(true);
+      try {
+        const records = await fetchDraftRecords({});
+        const sorted = sortRecordsByNewest(records);
+        setDraftRecords(sorted);
+
+        const latestRecord = sorted[0];
+        if (latestRecord?.formData && typeof latestRecord.formData === 'object') {
+          setData(normalizeResumeData(latestRecord.formData));
+          setCurrentDraftId(latestRecord.id || '');
+          showNotice('已自動載入你先前的履歷，可直接續填。', 'info');
+        } else {
+          setData(createBlankResumeData());
+          setCurrentDraftId('');
+          showNotice('尚未找到既有履歷，請開始填寫。', 'info');
+        }
+      } catch (error) {
+        console.error('Auto load resume failed:', error);
+        showNotice(`自動載入履歷失敗：${error?.message || '請稍後再試。'}`, 'error');
+      } finally {
+        setIsLoadingDrafts(false);
+      }
+    })();
+  }, [authReady, authUser, isAdmin, isAdminRoute]);
 
   const upsertResumeRecord = async ({ showSuccessNotice = false, successMessage = '' } = {}) => {
     if (!authUser) {
-      showNotice('請先登入後再儲存草稿。', 'error');
+      showNotice('請先登入後再儲存履歷。', 'error');
       return null;
     }
     if (isAdmin && !currentDraftId) {
@@ -391,7 +419,7 @@ const ResumeBuilder = () => {
       });
       const result = await parseResponsePayload(response);
       if (!response.ok || !result?.ok || !result?.record?.id) {
-        throw new Error(result?.message || `草稿儲存失敗（${response.status}）`);
+        throw new Error(result?.message || `履歷儲存失敗（${response.status}）`);
       }
 
       const savedRecord = result.record;
@@ -414,7 +442,7 @@ const ResumeBuilder = () => {
       return savedRecord;
     } catch (error) {
       console.error('Save draft failed:', error);
-      showNotice(`儲存草稿失敗：${error?.message || '請稍後再試。'}`, 'error');
+      showNotice(`儲存履歷失敗：${error?.message || '請稍後再試。'}`, 'error');
       return null;
     } finally {
       setIsSavingDraft(false);
@@ -444,29 +472,9 @@ const ResumeBuilder = () => {
       setIsAdminDrawerOpen(true);
     }
     if (showLoadedNotice) {
-      showNotice(`已載入履歷：${record.title || '未命名草稿'}`, 'info');
+      showNotice(`已載入履歷：${record.title || '未命名履歷'}`, 'info');
     }
     return true;
-  };
-
-  const applyDraftRecord = (record) => {
-    if (!record?.formData || typeof record.formData !== 'object') {
-      showNotice('草稿資料格式不正確。', 'error');
-      return;
-    }
-
-    if (isAdmin) {
-      loadAdminRecordForAction(record, { openDrawer: true, showLoadedNotice: true });
-      return;
-    }
-
-    setIsPreviewMode(false);
-    clearValidationErrors();
-    const nextData = normalizeResumeData(record.formData);
-    setData(nextData);
-    setCurrentDraftId(record.id || '');
-    setIsDraftManagerOpen(false);
-    showNotice(`已載入草稿：${record.title || '未命名草稿'}`, 'info');
   };
 
   const deleteDraftRecord = async (recordId) => {
@@ -481,7 +489,7 @@ const ResumeBuilder = () => {
       });
       const result = await parseResponsePayload(response);
       if (!response.ok || !result?.ok) {
-        throw new Error(result?.message || `草稿刪除失敗（${response.status}）`);
+        throw new Error(result?.message || `履歷刪除失敗（${response.status}）`);
       }
 
       setDraftRecords((prev) => prev.filter((item) => item.id !== recordId));
@@ -493,10 +501,10 @@ const ResumeBuilder = () => {
         setSelectedAdminRecordId('');
       }
       setViewingRecord(null);
-      showNotice('草稿已刪除。', 'info');
+      showNotice('履歷已刪除。', 'info');
     } catch (error) {
       console.error('Delete draft failed:', error);
-      showNotice(`刪除草稿失敗：${error?.message || '請稍後再試。'}`, 'error');
+      showNotice(`刪除履歷失敗：${error?.message || '請稍後再試。'}`, 'error');
     } finally {
       setDeletingDraftId('');
     }
@@ -509,10 +517,9 @@ const ResumeBuilder = () => {
     }
     clearValidationErrors();
     setData(createBlankResumeData());
-    setCurrentDraftId('');
     setSelectedAdminRecordId('');
     setIsPreviewMode(false);
-    showNotice('已建立新表單。', 'info');
+    showNotice('已清空表單，可重新填寫。送出後會更新你的履歷。', 'info');
   };
 
   const handleAdminQueryChange = (value) => {
@@ -520,7 +527,7 @@ const ResumeBuilder = () => {
   };
 
   const handleAdminSearch = async () => {
-    await loadRecords({ q: adminQuery });
+    await refreshAdminRecords();
   };
 
   const handleAdminReset = async () => {
@@ -1281,7 +1288,7 @@ const ResumeBuilder = () => {
         isAdmin={isAdmin}
         isAdminRoute={isAdminRoute}
         onNewDraft={createNewDraft}
-        onLoadDrafts={openDraftManager}
+        onLoadDrafts={refreshAdminRecords}
         onExportWord={exportToWord}
         onPrint={printDocument}
         canExport={Boolean(currentDraftId)}
@@ -1294,19 +1301,6 @@ const ResumeBuilder = () => {
         onLogout={handleLogout}
       />
       <NoticeBanner notice={notice} />
-      {!isAdminRoute && (
-        <DraftManager
-          isOpen={isDraftManagerOpen}
-          records={draftRecords}
-          isAdmin={false}
-          isLoading={isLoadingDrafts}
-          deletingId={deletingDraftId}
-          onClose={() => setIsDraftManagerOpen(false)}
-          onRefresh={openDraftManager}
-          onApply={applyDraftRecord}
-          onDelete={deleteDraftRecord}
-        />
-      )}
 
       <div className="max-w-5xl mx-auto mt-8 px-4">
         {isAdminRoute ? (

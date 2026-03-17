@@ -1,6 +1,7 @@
 import { getFirestoreDb, getStorageBucket, verifyFirebaseIdToken } from './_lib/firebaseAdmin.js';
 
 const COLLECTION_NAME = 'resumeRecords';
+const AUDIT_COLLECTION_NAME = 'resumeRecordAuditLogs';
 const MAX_FORMDATA_BYTES = 900000;
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const ADMIN_EMAILS = new Set(
@@ -105,7 +106,76 @@ const normalizeRecord = (doc) => {
     ownerName: data.ownerName || '',
     createdAt: data.createdAt || '',
     updatedAt: data.updatedAt || '',
+    lastModifiedByUid: data.lastModifiedByUid || '',
+    lastModifiedByEmail: data.lastModifiedByEmail || '',
+    lastModifiedByName: data.lastModifiedByName || '',
+    lastModifiedAt: data.lastModifiedAt || '',
     formData: data.formData || {},
+  };
+};
+
+const getActorProfile = (authUser) => ({
+  uid: normalizeUid(authUser?.uid),
+  email: String(authUser?.email || '').trim().toLowerCase(),
+  name: toSafeText(authUser?.name || authUser?.displayName || ''),
+});
+
+const writeAuditLog = async (db, event) => {
+  const payload = event && typeof event === 'object' ? event : {};
+  try {
+    await db.collection(AUDIT_COLLECTION_NAME).add({
+      ...payload,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('write audit log failed:', error);
+  }
+};
+
+const pickLatestDocFromSnapshot = (snapshot) => {
+  if (!snapshot || snapshot.empty) return null;
+
+  let latestDoc = null;
+  let latestTime = -1;
+
+  snapshot.forEach((doc) => {
+    const raw = doc.data() || {};
+    const updatedAt = toUpdatedTimestamp(raw.updatedAt);
+    const createdAt = toUpdatedTimestamp(raw.createdAt);
+    const score = Math.max(updatedAt, createdAt);
+    if (score > latestTime) {
+      latestDoc = doc;
+      latestTime = score;
+    }
+  });
+
+  return latestDoc;
+};
+
+const findLatestRecordByOwner = async (db, ownerUid, ownerEmail) => {
+  const safeUid = normalizeUid(ownerUid);
+  const safeEmail = String(ownerEmail || '').trim().toLowerCase();
+
+  if (safeUid) {
+    const uidSnapshot = await db.collection(COLLECTION_NAME).where('ownerUid', '==', safeUid).get();
+    const uidLatestDoc = pickLatestDocFromSnapshot(uidSnapshot);
+    if (uidLatestDoc) {
+      return {
+        docRef: uidLatestDoc.ref,
+        data: uidLatestDoc.data() || {},
+      };
+    }
+  }
+
+  if (!safeEmail) return null;
+  const emailSnapshot = await db.collection(COLLECTION_NAME).where('ownerEmail', '==', safeEmail).get();
+  const emailLatestDoc = pickLatestDocFromSnapshot(emailSnapshot);
+  const latestDoc = emailLatestDoc;
+  if (!latestDoc) return null;
+
+  return {
+    docRef: latestDoc.ref,
+    data: latestDoc.data() || {},
   };
 };
 
@@ -297,11 +367,17 @@ const listRecords = async (req, res, authUser, isAdmin) => {
     .filter((record) => matchRecordByKeywords(record, filters))
     .sort((a, b) => toUpdatedTimestamp(b.updatedAt) - toUpdatedTimestamp(a.updatedAt));
 
+  if (!isAdmin) {
+    const latestOnly = records[0] ? [records[0]] : [];
+    return res.status(200).json({ ok: true, records: latestOnly });
+  }
+
   return res.status(200).json({ ok: true, records });
 };
 
 const upsertRecord = async (req, res, authUser, isAdmin) => {
   const db = getFirestoreDb();
+  const actor = getActorProfile(authUser);
   const body = parseBody(req);
   const incomingFormData = body?.formData;
   const recordId = toSafeText(body?.recordId);
@@ -312,14 +388,14 @@ const upsertRecord = async (req, res, authUser, isAdmin) => {
     return res.status(400).json({ ok: false, message: 'Invalid formData' });
   }
 
-  // 統一權限檢核（建立新資料）
-  if (!recordId && !ensureActionPermission({ action: 'create', res, authUser, isAdmin, requestedOwnerUid })) {
-    return;
+  if (!isAdmin && requestedOwnerUid && requestedOwnerUid !== actor.uid) {
+    return res.status(403).json({ ok: false, message: 'Forbidden' });
   }
 
   const nowIso = new Date().toISOString();
   let docRef;
   let existingData = null;
+  let operation = 'create';
 
   if (recordId) {
     docRef = db.collection(COLLECTION_NAME).doc(recordId);
@@ -330,8 +406,28 @@ const upsertRecord = async (req, res, authUser, isAdmin) => {
     if (!ensureActionPermission({ action: 'update', res, authUser, isAdmin, record: existingData })) {
       return;
     }
+    operation = 'update';
   } else {
-    docRef = db.collection(COLLECTION_NAME).doc();
+    // 一般使用者固定維持單一履歷：若已存在，改為更新最新一筆。
+    if (!isAdmin) {
+      const latestOwnedRecord = await findLatestRecordByOwner(db, authUser.uid, authUser.email);
+      if (latestOwnedRecord) {
+        docRef = latestOwnedRecord.docRef;
+        existingData = latestOwnedRecord.data;
+        if (!ensureActionPermission({ action: 'update', res, authUser, isAdmin, record: existingData })) {
+          return;
+        }
+        operation = 'update';
+      }
+    }
+
+    if (!docRef) {
+      if (!ensureActionPermission({ action: 'create', res, authUser, isAdmin, requestedOwnerUid })) {
+        return;
+      }
+      docRef = db.collection(COLLECTION_NAME).doc();
+      operation = 'create';
+    }
   }
 
   const ownerUid = existingData?.ownerUid || authUser.uid;
@@ -358,6 +454,10 @@ const upsertRecord = async (req, res, authUser, isAdmin) => {
     ownerName,
     formData: normalizedFormData,
     updatedAt: nowIso,
+    lastModifiedByUid: actor.uid,
+    lastModifiedByEmail: actor.email,
+    lastModifiedByName: actor.name,
+    lastModifiedAt: nowIso,
   };
 
   if (existingData) {
@@ -370,11 +470,22 @@ const upsertRecord = async (req, res, authUser, isAdmin) => {
   }
 
   const saved = await docRef.get();
+  await writeAuditLog(db, {
+    action: operation,
+    actorUid: actor.uid,
+    actorEmail: actor.email,
+    actorName: actor.name,
+    isAdmin,
+    recordId: docRef.id,
+    ownerUid,
+    ownerEmail,
+  });
   return res.status(200).json({ ok: true, record: normalizeRecord(saved) });
 };
 
 const deleteRecord = async (req, res, authUser, isAdmin) => {
   const db = getFirestoreDb();
+  const actor = getActorProfile(authUser);
   const recordId = toSafeText(req.query?.id);
   if (!recordId) {
     return res.status(400).json({ ok: false, message: 'Missing record id' });
@@ -399,6 +510,16 @@ const deleteRecord = async (req, res, authUser, isAdmin) => {
   }
 
   await docRef.delete();
+  await writeAuditLog(db, {
+    action: 'delete',
+    actorUid: actor.uid,
+    actorEmail: actor.email,
+    actorName: actor.name,
+    isAdmin,
+    recordId,
+    ownerUid: normalizeUid(existing?.ownerUid),
+    ownerEmail: String(existing?.ownerEmail || '').trim().toLowerCase(),
+  });
   return res.status(200).json({ ok: true });
 };
 

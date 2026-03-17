@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, Loader2, Pencil, RefreshCw, Search, Trash2 } from 'lucide-react';
 
 const PAGE_SIZE = 8;
+const formatDateTime = (value) => {
+  const parsed = Date.parse(String(value || ''));
+  if (!Number.isFinite(parsed)) return String(value || '-');
+  return new Date(parsed).toLocaleString('zh-TW', { hour12: false });
+};
 
 const AdminRecordPanel = ({
   query,
@@ -41,20 +46,20 @@ const AdminRecordPanel = ({
     <div className={`flex ${compact ? 'flex-wrap' : ''} justify-end gap-2`}>
       <button
         onClick={() => onView(record)}
-        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100"
+        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100 whitespace-nowrap"
       >
         <Eye className="w-4 h-4" /> 檢視
       </button>
       <button
         onClick={() => onEdit(record)}
-        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap"
       >
         <Pencil className="w-4 h-4" /> 編輯
       </button>
       <button
         onClick={() => onDelete(record.id)}
         disabled={deletingId === record.id}
-        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-50 text-red-700 border border-red-100 hover:bg-red-100 disabled:opacity-70"
+        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-50 text-red-700 border border-red-100 hover:bg-red-100 disabled:opacity-70 whitespace-nowrap"
       >
         {deletingId === record.id ? (
           <Loader2 className="w-4 h-4 animate-spin" />
@@ -149,7 +154,12 @@ const AdminRecordPanel = ({
                         </td>
                         <td className="px-3 py-3 text-gray-800 truncate">{formData.name || '-'}</td>
                         <td className="px-3 py-3 text-gray-700 truncate">{formData.phone || '-'}</td>
-                        <td className="px-3 py-3 text-gray-600 truncate">{record.ownerEmail || '-'}</td>
+                        <td className="px-3 py-3 text-gray-600">
+                          <div className="truncate">{record.ownerEmail || '-'}</div>
+                          <div className="truncate text-xs text-gray-500 mt-1">
+                            最後修改：{record.lastModifiedByEmail || record.ownerEmail || '-'}｜{formatDateTime(record.lastModifiedAt || record.updatedAt)}
+                          </div>
+                        </td>
                         <td className="px-3 py-3">{renderActionButtons(record)}</td>
                       </tr>
                     );
@@ -197,6 +207,10 @@ const AdminRecordPanel = ({
                     <div className="mt-2 space-y-1.5 text-sm text-gray-700">
                       <div><span className="text-gray-500">電話：</span>{formData.phone || '-'}</div>
                       <div className="break-all"><span className="text-gray-500">Email：</span>{record.ownerEmail || '-'}</div>
+                      <div className="break-all">
+                        <span className="text-gray-500">最後修改：</span>
+                        {(record.lastModifiedByEmail || record.ownerEmail || '-') + '｜' + formatDateTime(record.lastModifiedAt || record.updatedAt)}
+                      </div>
                     </div>
                     <div className="mt-3">{renderActionButtons(record, true)}</div>
                   </div>

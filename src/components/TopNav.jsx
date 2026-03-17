@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, FileText, FolderOpen, Loader2, LogIn, LogOut, PlusCircle, Printer, RefreshCw } from 'lucide-react';
+import { Download, FileText, Loader2, LogIn, LogOut, PlusCircle, Printer, RefreshCw } from 'lucide-react';
 
 const TopNav = ({
   isAdmin,
@@ -96,16 +96,7 @@ const TopNav = ({
               onClick={onNewDraft}
               className="flex items-center gap-1 px-3 py-2 rounded-md font-medium text-gray-600 hover:bg-gray-100 transition-colors"
             >
-              <PlusCircle className="w-4 h-4" /> 新建
-            </button>
-            <button
-              onClick={onLoadDrafts}
-              disabled={isLoadingDrafts}
-              className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-                isLoadingDrafts ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-slate-600 text-white hover:bg-slate-700'
-              }`}
-            >
-              {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />} 載入歷史履歷
+              <PlusCircle className="w-4 h-4" /> 清空重填
             </button>
           </>
         )}

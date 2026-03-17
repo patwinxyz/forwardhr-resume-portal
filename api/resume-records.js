@@ -39,6 +39,54 @@ const toUpdatedTimestamp = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const normalizeUid = (value) => toSafeText(value);
+
+const hasValidAuthIdentity = (authUser) => Boolean(normalizeUid(authUser?.uid));
+
+const canAccessRecord = ({ authUser, isAdmin, record }) => {
+  if (isAdmin) return true;
+  const requesterUid = normalizeUid(authUser?.uid);
+  const ownerUid = normalizeUid(record?.ownerUid);
+  return Boolean(requesterUid) && Boolean(ownerUid) && requesterUid === ownerUid;
+};
+
+const ensureActionPermission = ({ action, res, authUser, isAdmin, record, requestedOwnerUid = '' }) => {
+  const requesterUid = normalizeUid(authUser?.uid);
+
+  if (!requesterUid) {
+    res.status(401).json({ ok: false, message: 'Invalid Firebase user identity' });
+    return false;
+  }
+
+  if (action === 'create') {
+    if (isAdmin) {
+      res.status(403).json({ ok: false, message: '管理員僅可編修既有資料，無法新增草稿' });
+      return false;
+    }
+
+    // 防止一般使用者嘗試在 payload 指定其他 owner。
+    const ownerUidFromRequest = normalizeUid(requestedOwnerUid);
+    if (ownerUidFromRequest && ownerUidFromRequest !== requesterUid) {
+      res.status(403).json({ ok: false, message: 'Forbidden' });
+      return false;
+    }
+
+    return true;
+  }
+
+  if (!record) {
+    res.status(404).json({ ok: false, message: 'Record not found' });
+    return false;
+  }
+
+  if (!canAccessRecord({ authUser, isAdmin, record })) {
+    res.status(403).json({ ok: false, message: 'Forbidden' });
+    return false;
+  }
+
+  return true;
+};
+
 const validateFormDataSize = (formData) => {
   const payload = JSON.stringify(formData || {});
   const byteSize = Buffer.byteLength(payload, 'utf8');
@@ -227,6 +275,10 @@ const isAdminUser = (authUser) => {
 };
 
 const listRecords = async (req, res, authUser, isAdmin) => {
+  if (!hasValidAuthIdentity(authUser)) {
+    return res.status(401).json({ ok: false, message: 'Invalid Firebase user identity' });
+  }
+
   const db = getFirestoreDb();
   const filters = {
     q: toSearchKeyword(req.query?.q),
@@ -254,9 +306,15 @@ const upsertRecord = async (req, res, authUser, isAdmin) => {
   const incomingFormData = body?.formData;
   const recordId = toSafeText(body?.recordId);
   const title = toSafeText(body?.title) || '未命名草稿';
+  const requestedOwnerUid = normalizeUid(body?.ownerUid);
 
   if (!incomingFormData || typeof incomingFormData !== 'object' || Array.isArray(incomingFormData)) {
     return res.status(400).json({ ok: false, message: 'Invalid formData' });
+  }
+
+  // 統一權限檢核（建立新資料）
+  if (!recordId && !ensureActionPermission({ action: 'create', res, authUser, isAdmin, requestedOwnerUid })) {
+    return;
   }
 
   const nowIso = new Date().toISOString();
@@ -266,17 +324,13 @@ const upsertRecord = async (req, res, authUser, isAdmin) => {
   if (recordId) {
     docRef = db.collection(COLLECTION_NAME).doc(recordId);
     const snapshot = await docRef.get();
-    if (!snapshot.exists) {
-      return res.status(404).json({ ok: false, message: 'Record not found' });
-    }
-    existingData = snapshot.data() || {};
-    if (!isAdmin && existingData.ownerUid !== authUser.uid) {
-      return res.status(403).json({ ok: false, message: 'Forbidden' });
+    existingData = snapshot.exists ? (snapshot.data() || {}) : null;
+
+    // 統一權限檢核（更新既有資料）
+    if (!ensureActionPermission({ action: 'update', res, authUser, isAdmin, record: existingData })) {
+      return;
     }
   } else {
-    if (isAdmin) {
-      return res.status(403).json({ ok: false, message: '管理員僅可編修既有資料，無法新增草稿' });
-    }
     docRef = db.collection(COLLECTION_NAME).doc();
   }
 
@@ -328,16 +382,13 @@ const deleteRecord = async (req, res, authUser, isAdmin) => {
 
   const docRef = db.collection(COLLECTION_NAME).doc(recordId);
   const snapshot = await docRef.get();
-  if (!snapshot.exists) {
-    return res.status(404).json({ ok: false, message: 'Record not found' });
+
+  const existing = snapshot.exists ? (snapshot.data() || {}) : null;
+  if (!ensureActionPermission({ action: 'delete', res, authUser, isAdmin, record: existing })) {
+    return;
   }
 
-  const existing = snapshot.data() || {};
-  if (!isAdmin && existing.ownerUid !== authUser.uid) {
-    return res.status(403).json({ ok: false, message: 'Forbidden' });
-  }
-
-  const photoPath = toSafeText(existing?.formData?.photoPath);
+  const photoPath = toSafeText(existing.formData?.photoPath);
   if (photoPath) {
     try {
       const bucket = getStorageBucket();

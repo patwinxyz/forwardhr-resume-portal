@@ -27,6 +27,7 @@ const EditMode = ({
   onRemoveExperience,
   onPreview,
   onCheckboxChange,
+  showPreviewAction = true,
 }) => {
   const checkboxGroupSharedProps = {
     data,
@@ -41,7 +42,9 @@ const EditMode = ({
       {validationErrors.length > 0 && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4">
           <div className="font-semibold">請先修正：{validationErrors[0]}</div>
-          <div className="text-sm mt-1">完成後再進行預覽、列印或匯出。</div>
+          <div className="text-sm mt-1">
+            {showPreviewAction ? '完成後再進行預覽、列印或匯出。' : '完成後再進行儲存修改。'}
+          </div>
         </div>
       )}
 
@@ -345,11 +348,16 @@ const EditMode = ({
         />
       </div>
 
-      <div className="flex justify-end pt-4">
-        <button onClick={onPreview} className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-blue-700 shadow-md flex items-center gap-2">
-          完成填寫，前往匯出 / 預覽 <FileText className="w-5 h-5" />
-        </button>
-      </div>
+      {showPreviewAction && (
+        <div className="flex justify-end pt-4">
+          <button
+            onClick={onPreview}
+            className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-blue-700 shadow-md flex items-center gap-2"
+          >
+            完成填寫，前往匯出 / 預覽 <FileText className="w-5 h-5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

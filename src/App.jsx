@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import AdminRecordPanel from './components/AdminRecordPanel';
 import DraftManager from './components/DraftManager';
 import EditMode from './components/EditMode';
 import NoticeBanner from './components/NoticeBanner';
@@ -107,6 +108,7 @@ const ResumeBuilder = () => {
   const [isDraftManagerOpen, setIsDraftManagerOpen] = useState(false);
   const [draftRecords, setDraftRecords] = useState([]);
   const [currentDraftId, setCurrentDraftId] = useState('');
+  const [adminFilters, setAdminFilters] = useState({ name: '', arcNumber: '' });
   const [activeErrorField, setActiveErrorField] = useState('');
   const [notice, setNotice] = useState(null);
   const [authUser, setAuthUser] = useState(null);
@@ -187,9 +189,15 @@ const ResumeBuilder = () => {
     };
   };
 
-  const fetchDraftRecords = async () => {
+  const fetchDraftRecords = async (filters = {}) => {
     const headers = await getAuthRequestHeaders();
-    const response = await fetch(getApiEndpoint('/api/resume-records'), {
+    const params = new URLSearchParams();
+    const nameFilter = String(filters?.name || '').trim();
+    const arcFilter = String(filters?.arcNumber || '').trim();
+    if (nameFilter) params.set('name', nameFilter);
+    if (arcFilter) params.set('arcNumber', arcFilter);
+    const query = params.toString();
+    const response = await fetch(`${getApiEndpoint('/api/resume-records')}${query ? `?${query}` : ''}`, {
       method: 'GET',
       headers,
     });
@@ -200,23 +208,39 @@ const ResumeBuilder = () => {
     return Array.isArray(result.records) ? result.records : [];
   };
 
-  const openDraftManager = async () => {
+  const loadRecords = async (filters = {}, { openModal = false } = {}) => {
     if (!authUser) {
-      showNotice('請先登入後再載入草稿。', 'error');
+      showNotice('請先登入後再載入資料。', 'error');
       return;
     }
 
     setIsLoadingDrafts(true);
     try {
-      const records = await fetchDraftRecords();
+      const records = await fetchDraftRecords(filters);
       setDraftRecords(records);
-      setIsDraftManagerOpen(true);
+      if (openModal) {
+        setIsDraftManagerOpen(true);
+      }
     } catch (error) {
-      console.error('Load drafts failed:', error);
-      showNotice(`載入草稿失敗：${error?.message || '請稍後再試。'}`, 'error');
+      console.error('Load records failed:', error);
+      showNotice(`載入資料失敗：${error?.message || '請稍後再試。'}`, 'error');
     } finally {
       setIsLoadingDrafts(false);
     }
+  };
+
+  useEffect(() => {
+    if (!authUser || !isAdmin) return;
+    setMode('edit');
+    void loadRecords(adminFilters);
+  }, [authUser, isAdmin]);
+
+  const openDraftManager = async () => {
+    if (isAdmin) {
+      await loadRecords(adminFilters);
+      return;
+    }
+    await loadRecords({}, { openModal: true });
   };
 
   const saveDraft = async () => {
@@ -255,11 +279,16 @@ const ResumeBuilder = () => {
 
       const savedRecord = result.record;
       setCurrentDraftId(savedRecord.id);
-      setDraftRecords((prev) => {
-        const merged = [savedRecord, ...prev.filter((item) => item.id !== savedRecord.id)];
-        return merged.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
-      });
-      showNotice('草稿已儲存（照片不會存入草稿）。', 'info');
+      if (isAdmin) {
+        await loadRecords(adminFilters);
+        showNotice('履歷資料已更新。', 'info');
+      } else {
+        setDraftRecords((prev) => {
+          const merged = [savedRecord, ...prev.filter((item) => item.id !== savedRecord.id)];
+          return merged.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+        });
+        showNotice('草稿已儲存（照片不會存入草稿）。', 'info');
+      }
     } catch (error) {
       console.error('Save draft failed:', error);
       showNotice(`儲存草稿失敗：${error?.message || '請稍後再試。'}`, 'error');
@@ -279,7 +308,9 @@ const ResumeBuilder = () => {
     setData(nextData);
     setCurrentDraftId(record.id || '');
     setMode('edit');
-    setIsDraftManagerOpen(false);
+    if (!isAdmin) {
+      setIsDraftManagerOpen(false);
+    }
     showNotice(`已載入草稿：${record.title || '未命名草稿'}`, 'info');
   };
 
@@ -321,6 +352,23 @@ const ResumeBuilder = () => {
     setCurrentDraftId('');
     setMode('edit');
     showNotice('已建立新表單。', 'info');
+  };
+
+  const handleAdminFilterChange = (field, value) => {
+    setAdminFilters((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleAdminSearch = async () => {
+    await loadRecords(adminFilters);
+  };
+
+  const handleAdminReset = async () => {
+    const emptyFilters = { name: '', arcNumber: '' };
+    setAdminFilters(emptyFilters);
+    await loadRecords(emptyFilters);
   };
 
   const focusField = (fieldKey) => {
@@ -980,6 +1028,7 @@ const ResumeBuilder = () => {
         onSendEmail={sendResumeByEmail}
         isSendingEmail={isSendingEmail}
         isSavingDraft={isSavingDraft}
+        canSaveDraft={!isAdmin || Boolean(currentDraftId)}
         isLoadingDrafts={isLoadingDrafts}
         authUser={authUser}
         isAdmin={isAdmin}
@@ -989,25 +1038,62 @@ const ResumeBuilder = () => {
         onLogout={handleLogout}
       />
       <NoticeBanner notice={notice} />
-      <DraftManager
-        isOpen={isDraftManagerOpen}
-        records={draftRecords}
-        isAdmin={isAdmin}
-        isLoading={isLoadingDrafts}
-        deletingId={deletingDraftId}
-        onClose={() => setIsDraftManagerOpen(false)}
-        onRefresh={openDraftManager}
-        onApply={applyDraftRecord}
-        onDelete={deleteDraftRecord}
-      />
+      {!isAdmin && (
+        <DraftManager
+          isOpen={isDraftManagerOpen}
+          records={draftRecords}
+          isAdmin={isAdmin}
+          isLoading={isLoadingDrafts}
+          deletingId={deletingDraftId}
+          onClose={() => setIsDraftManagerOpen(false)}
+          onRefresh={openDraftManager}
+          onApply={applyDraftRecord}
+          onDelete={deleteDraftRecord}
+        />
+      )}
 
       <div className="max-w-5xl mx-auto mt-8 px-4">
-        {isAdmin && !currentDraftId ? (
-          <div className="bg-white border border-blue-100 rounded-2xl shadow-sm p-8 text-center">
-            <h2 className="text-2xl font-bold text-blue-700 mb-2">管理員 CRUD 模式</h2>
-            <p className="text-gray-600">
-              請先點上方「管理履歷資料」載入一筆履歷，再進行修改或刪除。
-            </p>
+        {isAdmin ? (
+          <div className="space-y-6">
+            <AdminRecordPanel
+              filters={adminFilters}
+              onFilterChange={handleAdminFilterChange}
+              onSearch={handleAdminSearch}
+              onReset={handleAdminReset}
+              records={draftRecords}
+              isLoading={isLoadingDrafts}
+              deletingId={deletingDraftId}
+              currentDraftId={currentDraftId}
+              onApply={applyDraftRecord}
+              onDelete={deleteDraftRecord}
+            />
+            {!currentDraftId && (
+              <div className="bg-white border border-blue-100 rounded-2xl shadow-sm p-8 text-center">
+                <h2 className="text-2xl font-bold text-blue-700 mb-2">管理員 CRUD 模式</h2>
+                <p className="text-gray-600">請先在上方列表選一筆資料，點「載入編修」後即可修改。</p>
+              </div>
+            )}
+            {currentDraftId && (
+              <EditMode
+                data={data}
+                validationErrors={validationErrors}
+                activeErrorField={activeErrorField}
+                adultMaxBirthDate={adultMaxBirthDate}
+                getErrorInputClass={getErrorInputClass}
+                onChange={handleChange}
+                onPhotoUpload={handlePhotoUpload}
+                onClearPhoto={clearPhoto}
+                onEducationChange={handleEducationChange}
+                onAddEducation={addEducation}
+                onRemoveEducation={removeEducation}
+                onExperienceChange={handleExperienceChange}
+                onAddExperience={addExperience}
+                onRemoveExperience={removeExperience}
+                onPreview={goPreview}
+                onCheckboxChange={handleCheckboxChange}
+                showPreviewAction={false}
+              />
+            )}
           </div>
         ) : mode === 'edit' ? (
           <EditMode
@@ -1027,6 +1113,7 @@ const ResumeBuilder = () => {
             onRemoveExperience={removeExperience}
             onPreview={goPreview}
             onCheckboxChange={handleCheckboxChange}
+            showPreviewAction
           />
         ) : (
           <PreviewMode

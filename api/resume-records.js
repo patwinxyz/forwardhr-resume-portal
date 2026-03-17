@@ -32,6 +32,8 @@ const toSafeText = (value) =>
     .replace(/[<>"'`]/g, '')
     .trim();
 
+const toSearchKeyword = (value) => toSafeText(value).toLowerCase();
+
 const validateFormDataSize = (formData) => {
   const payload = JSON.stringify(formData || {});
   const byteSize = Buffer.byteLength(payload, 'utf8');
@@ -52,6 +54,16 @@ const normalizeRecord = (doc) => {
     updatedAt: data.updatedAt || '',
     formData: data.formData || {},
   };
+};
+
+const matchRecordByKeywords = (record, nameKeyword, arcKeyword) => {
+  if (!nameKeyword && !arcKeyword) return true;
+  const formData = record?.formData || {};
+  const candidateName = String(formData.name || '').toLowerCase();
+  const candidateArc = String(formData.arcNumber || '').toLowerCase();
+  if (nameKeyword && !candidateName.includes(nameKeyword)) return false;
+  if (arcKeyword && !candidateArc.includes(arcKeyword)) return false;
+  return true;
 };
 
 const authenticateRequest = async (req, res) => {
@@ -83,6 +95,8 @@ const isAdminUser = (authUser) => {
 
 const listRecords = async (req, res, authUser, isAdmin) => {
   const db = getFirestoreDb();
+  const nameKeyword = toSearchKeyword(req.query?.name);
+  const arcKeyword = toSearchKeyword(req.query?.arcNumber);
   const query = isAdmin
     ? db.collection(COLLECTION_NAME)
     : db.collection(COLLECTION_NAME).where('ownerUid', '==', authUser.uid);
@@ -90,6 +104,7 @@ const listRecords = async (req, res, authUser, isAdmin) => {
 
   const records = snapshot.docs
     .map(normalizeRecord)
+    .filter((record) => matchRecordByKeywords(record, nameKeyword, arcKeyword))
     .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
 
   return res.status(200).json({ ok: true, records });

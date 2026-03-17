@@ -11,6 +11,7 @@ const TopNav = ({
   onLoadDrafts,
   isSendingEmail,
   isSavingDraft,
+  canSaveDraft,
   isLoadingDrafts,
   authUser,
   isAdmin,
@@ -69,13 +70,15 @@ const TopNav = ({
                   isLoadingDrafts ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-slate-600 text-white hover:bg-slate-700'
                 }`}
               >
-                {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />} 管理履歷資料
+                {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />} 重新整理列表
               </button>
               <button
                 onClick={onSaveDraft}
-                disabled={isSavingDraft}
+                disabled={isSavingDraft || !canSaveDraft}
                 className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-                  isSavingDraft ? 'bg-emerald-300 text-white cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  isSavingDraft || !canSaveDraft
+                    ? 'bg-emerald-300 text-white cursor-not-allowed'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
                 }`}
               >
                 {isSavingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 儲存修改

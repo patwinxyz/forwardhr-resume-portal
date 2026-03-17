@@ -1,5 +1,6 @@
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const normalizePrivateKey = (value) => String(value || '').replace(/\\n/g, '\n').trim();
 
@@ -30,9 +31,9 @@ const parseServiceAccountFromEnv = () => {
 
 const getServiceAccount = () => parseServiceAccountFromJson() || parseServiceAccountFromEnv();
 
-const getFirebaseAuth = () => {
+const getFirebaseAdminApp = () => {
   const existingApp = getApps()[0];
-  if (existingApp) return getAuth(existingApp);
+  if (existingApp) return existingApp;
 
   const serviceAccount = getServiceAccount();
   if (!serviceAccount) {
@@ -41,20 +42,20 @@ const getFirebaseAuth = () => {
     );
   }
 
-  const app = initializeApp({
+  return initializeApp({
     credential: cert({
       projectId: serviceAccount.projectId,
       clientEmail: serviceAccount.clientEmail,
       privateKey: serviceAccount.privateKey,
     }),
   });
-
-  return getAuth(app);
 };
 
 const verifyFirebaseIdToken = async (idToken) => {
-  const auth = getFirebaseAuth();
+  const auth = getAuth(getFirebaseAdminApp());
   return auth.verifyIdToken(idToken);
 };
 
-export { verifyFirebaseIdToken };
+const getFirestoreDb = () => getFirestore(getFirebaseAdminApp());
+
+export { verifyFirebaseIdToken, getFirestoreDb };

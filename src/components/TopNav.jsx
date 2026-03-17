@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, Edit, FileText, LogIn, LogOut, Printer, Send } from 'lucide-react';
+import { Download, Edit, FileText, FolderOpen, Loader2, LogIn, LogOut, PlusCircle, Printer, Save, Send } from 'lucide-react';
 
 const TopNav = ({
   mode,
@@ -7,9 +7,14 @@ const TopNav = ({
   onPreview,
   onExportWord,
   onSendEmail,
+  onNewDraft,
+  onSaveDraft,
+  onLoadDrafts,
   onPrint,
   isExportingWord,
   isSendingEmail,
+  isSavingDraft,
+  isLoadingDrafts,
   authUser,
   isAuthBusy,
   isAuthConfigured,
@@ -57,6 +62,30 @@ const TopNav = ({
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={onNewDraft}
+            className="flex items-center gap-1 px-3 py-2 rounded-md font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <PlusCircle className="w-4 h-4" /> 新建
+          </button>
+          <button
+            onClick={onSaveDraft}
+            disabled={isSavingDraft}
+            className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
+              isSavingDraft ? 'bg-emerald-300 text-white cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'
+            }`}
+          >
+            {isSavingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 儲存草稿
+          </button>
+          <button
+            onClick={onLoadDrafts}
+            disabled={isLoadingDrafts}
+            className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
+              isLoadingDrafts ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-slate-600 text-white hover:bg-slate-700'
+            }`}
+          >
+            {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />} 載入草稿
+          </button>
           <button
             onClick={onEdit}
             className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${

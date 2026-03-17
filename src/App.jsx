@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import DraftManager from './components/DraftManager';
 import EditMode from './components/EditMode';
 import NoticeBanner from './components/NoticeBanner';
 import PreviewMode from './components/PreviewMode';
@@ -36,13 +37,70 @@ import {
   injectPhotoIntoWordZip,
   fillResumeTemplateXml,
 } from './modules/resumeCore';
+
+const getTodayDateText = () => new Date().toISOString().split('T')[0];
+
+const normalizeResumeData = (source) => {
+  const raw = source && typeof source === 'object' ? source : {};
+  const data = {
+    ...initialData,
+    ...raw,
+    education: Array.isArray(raw.education) && raw.education.length > 0 ? raw.education : [{ school: '', major: '', gradDate: '' }],
+    experience: Array.isArray(raw.experience) && raw.experience.length > 0 ? raw.experience : [{ company: '', title: '', period: '' }],
+    languages: Array.isArray(raw.languages) ? raw.languages : [],
+    transportation: Array.isArray(raw.transportation) ? raw.transportation : [],
+    locations: Array.isArray(raw.locations) ? raw.locations : [],
+    jobTypes: Array.isArray(raw.jobTypes) ? raw.jobTypes : [],
+    workHours: Array.isArray(raw.workHours) ? raw.workHours : [],
+    photoDataUrl: typeof raw.photoDataUrl === 'string' ? raw.photoDataUrl : '',
+    fillDate: typeof raw.fillDate === 'string' && raw.fillDate ? raw.fillDate : getTodayDateText(),
+  };
+
+  if (data.birthDate) {
+    const autoAge = calculateAgeFromBirthDate(data.birthDate);
+    data.age = autoAge || String(data.age || '');
+  } else {
+    data.age = String(data.age || '');
+  }
+
+  return data;
+};
+
+const createBlankResumeData = () =>
+  normalizeResumeData({
+    ...initialData,
+    fillDate: getTodayDateText(),
+    photoDataUrl: '',
+  });
+
+const parseResponsePayload = async (response) => {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return { message: text.slice(0, 200) };
+  }
+};
+
+const getApiEndpoint = (path) => {
+  const apiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').trim();
+  return apiBaseUrl ? `${apiBaseUrl.replace(/\/$/, '')}${path}` : path;
+};
+
 const ResumeBuilder = () => {
   const FIXED_PREVIEW_SCALE = 0.8;
-  const [data, setData] = useState(initialData);
+  const [data, setData] = useState(() => createBlankResumeData());
   const [mode, setMode] = useState('edit');
   const [validationErrors, setValidationErrors] = useState([]);
   const [isExportingWord, setIsExportingWord] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
+  const [deletingDraftId, setDeletingDraftId] = useState('');
+  const [isDraftManagerOpen, setIsDraftManagerOpen] = useState(false);
+  const [draftRecords, setDraftRecords] = useState([]);
+  const [currentDraftId, setCurrentDraftId] = useState('');
   const [activeErrorField, setActiveErrorField] = useState('');
   const [notice, setNotice] = useState(null);
   const [authUser, setAuthUser] = useState(null);
@@ -94,6 +152,9 @@ const ResumeBuilder = () => {
     setIsAuthBusy(true);
     try {
       await logoutAuthUser();
+      setCurrentDraftId('');
+      setDraftRecords([]);
+      setIsDraftManagerOpen(false);
       showNotice('已登出。', 'info');
     } catch (error) {
       console.error('Logout failed:', error);
@@ -101,6 +162,148 @@ const ResumeBuilder = () => {
     } finally {
       setIsAuthBusy(false);
     }
+  };
+
+  const getAuthRequestHeaders = async () => {
+    if (!authUser || typeof authUser.getIdToken !== 'function') {
+      throw new Error('請先登入');
+    }
+    const idToken = await authUser.getIdToken();
+    if (!idToken) {
+      throw new Error('登入憑證已失效，請重新登入');
+    }
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    };
+  };
+
+  const fetchDraftRecords = async () => {
+    const headers = await getAuthRequestHeaders();
+    const response = await fetch(getApiEndpoint('/api/resume-records'), {
+      method: 'GET',
+      headers,
+    });
+    const result = await parseResponsePayload(response);
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || `草稿查詢失敗（${response.status}）`);
+    }
+    return Array.isArray(result.records) ? result.records : [];
+  };
+
+  const openDraftManager = async () => {
+    if (!authUser) {
+      showNotice('請先登入後再載入草稿。', 'error');
+      return;
+    }
+
+    setIsLoadingDrafts(true);
+    try {
+      const records = await fetchDraftRecords();
+      setDraftRecords(records);
+      setIsDraftManagerOpen(true);
+    } catch (error) {
+      console.error('Load drafts failed:', error);
+      showNotice(`載入草稿失敗：${error?.message || '請稍後再試。'}`, 'error');
+    } finally {
+      setIsLoadingDrafts(false);
+    }
+  };
+
+  const saveDraft = async () => {
+    if (!authUser) {
+      showNotice('請先登入後再儲存草稿。', 'error');
+      return;
+    }
+
+    setIsSavingDraft(true);
+    try {
+      const headers = await getAuthRequestHeaders();
+      const draftPayload = {
+        ...data,
+        // Firestore 單文件限制 1MB，草稿先不保存照片
+        photoDataUrl: '',
+      };
+      const title = `${data.name || '未命名'}_${data.fillDate || getTodayDateText()}`;
+
+      const response = await fetch(getApiEndpoint('/api/resume-records'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          recordId: currentDraftId,
+          title,
+          formData: draftPayload,
+        }),
+      });
+      const result = await parseResponsePayload(response);
+      if (!response.ok || !result?.ok || !result?.record?.id) {
+        throw new Error(result?.message || `草稿儲存失敗（${response.status}）`);
+      }
+
+      const savedRecord = result.record;
+      setCurrentDraftId(savedRecord.id);
+      setDraftRecords((prev) => {
+        const merged = [savedRecord, ...prev.filter((item) => item.id !== savedRecord.id)];
+        return merged.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+      });
+      showNotice('草稿已儲存（照片不會存入草稿）。', 'info');
+    } catch (error) {
+      console.error('Save draft failed:', error);
+      showNotice(`儲存草稿失敗：${error?.message || '請稍後再試。'}`, 'error');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const applyDraftRecord = (record) => {
+    if (!record?.formData || typeof record.formData !== 'object') {
+      showNotice('草稿資料格式不正確。', 'error');
+      return;
+    }
+
+    clearValidationErrors();
+    const nextData = normalizeResumeData(record.formData);
+    setData(nextData);
+    setCurrentDraftId(record.id || '');
+    setMode('edit');
+    setIsDraftManagerOpen(false);
+    showNotice(`已載入草稿：${record.title || '未命名草稿'}`, 'info');
+  };
+
+  const deleteDraftRecord = async (recordId) => {
+    if (!recordId) return;
+
+    setDeletingDraftId(recordId);
+    try {
+      const headers = await getAuthRequestHeaders();
+      const response = await fetch(`${getApiEndpoint('/api/resume-records')}?id=${encodeURIComponent(recordId)}`, {
+        method: 'DELETE',
+        headers,
+      });
+      const result = await parseResponsePayload(response);
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.message || `草稿刪除失敗（${response.status}）`);
+      }
+
+      setDraftRecords((prev) => prev.filter((item) => item.id !== recordId));
+      if (currentDraftId === recordId) {
+        setCurrentDraftId('');
+      }
+      showNotice('草稿已刪除。', 'info');
+    } catch (error) {
+      console.error('Delete draft failed:', error);
+      showNotice(`刪除草稿失敗：${error?.message || '請稍後再試。'}`, 'error');
+    } finally {
+      setDeletingDraftId('');
+    }
+  };
+
+  const createNewDraft = () => {
+    clearValidationErrors();
+    setData(createBlankResumeData());
+    setCurrentDraftId('');
+    setMode('edit');
+    showNotice('已建立新表單。', 'info');
   };
 
   const focusField = (fieldKey) => {
@@ -644,9 +847,7 @@ const ResumeBuilder = () => {
       const attachmentBuffer = await attachmentBlob.arrayBuffer();
       const attachmentBase64 = arrayBufferToBase64(attachmentBuffer);
       const idToken = typeof authUser.getIdToken === 'function' ? await authUser.getIdToken() : '';
-      const apiBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').trim();
-      const endpoint = `${apiBaseUrl.replace(/\/$/, '')}/api/send-resume`;
-      const response = await fetch(apiBaseUrl ? endpoint : '/api/send-resume', {
+      const response = await fetch(getApiEndpoint('/api/send-resume'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -738,6 +939,9 @@ const ResumeBuilder = () => {
       <ResumeStyles />
       <TopNav
         mode={mode}
+        onNewDraft={createNewDraft}
+        onSaveDraft={saveDraft}
+        onLoadDrafts={openDraftManager}
         onEdit={() => setMode('edit')}
         onPreview={goPreview}
         onExportWord={exportToWord}
@@ -745,6 +949,8 @@ const ResumeBuilder = () => {
         onPrint={printDocument}
         isExportingWord={isExportingWord}
         isSendingEmail={isSendingEmail}
+        isSavingDraft={isSavingDraft}
+        isLoadingDrafts={isLoadingDrafts}
         authUser={authUser}
         isAuthBusy={isAuthBusy}
         isAuthConfigured={isAuthConfigured}
@@ -752,6 +958,16 @@ const ResumeBuilder = () => {
         onLogout={handleLogout}
       />
       <NoticeBanner notice={notice} />
+      <DraftManager
+        isOpen={isDraftManagerOpen}
+        records={draftRecords}
+        isLoading={isLoadingDrafts}
+        deletingId={deletingDraftId}
+        onClose={() => setIsDraftManagerOpen(false)}
+        onRefresh={openDraftManager}
+        onApply={applyDraftRecord}
+        onDelete={deleteDraftRecord}
+      />
 
       <div className="max-w-5xl mx-auto mt-8 px-4">
         {mode === 'edit' ? (

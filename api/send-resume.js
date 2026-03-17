@@ -71,6 +71,8 @@ export default async function handler(req, res) {
     submitterEmail,
     submitterName,
     fillDate,
+    isResubmission,
+    lastSubmittedAt,
   } = body;
 
   if (!attachmentBase64) {
@@ -103,20 +105,29 @@ export default async function handler(req, res) {
   const safeSubmitterEmail = requestSubmitterEmail || tokenEmail;
   const safeSubmitterName = sanitize(submitterName);
   const safeFillDate = sanitize(fillDate);
+  const safeLastSubmittedAt = sanitize(lastSubmittedAt);
+  const resubmissionFlag = isResubmission === true;
 
   const nowText = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
   const resend = new Resend(apiKey);
   const subject = `[履歷送出] ${safeApplicantName} - ${nowText}`;
+  const resubmissionNotice = resubmissionFlag
+    ? `<p style="margin: 0 0 12px; color: #92400e; background:#fef3c7; border:1px solid #fde68a; padding:8px 10px; border-radius:6px;">
+        此封履歷為編輯後重寄版本${safeLastSubmittedAt ? `（上次送出：${safeLastSubmittedAt}）` : ''}。
+      </p>`
+    : '';
 
   const html = `
     <div style="font-family: Arial, 'Microsoft JhengHei', sans-serif; line-height: 1.6; color: #111827;">
       <h2 style="margin: 0 0 12px;">新履歷送出通知</h2>
+      ${resubmissionNotice}
       <p style="margin: 0 0 16px;">附件已附上履歷 Word 檔案。</p>
       <table style="border-collapse: collapse; width: 100%; max-width: 640px;">
         <tr><td style="padding: 8px; border: 1px solid #e5e7eb; width: 140px;">填表姓名</td><td style="padding: 8px; border: 1px solid #e5e7eb;">${safeApplicantName}</td></tr>
         <tr><td style="padding: 8px; border: 1px solid #e5e7eb;">填表 Email</td><td style="padding: 8px; border: 1px solid #e5e7eb;">${safeApplicantEmail || '-'}</td></tr>
         <tr><td style="padding: 8px; border: 1px solid #e5e7eb;">聯絡電話</td><td style="padding: 8px; border: 1px solid #e5e7eb;">${safeApplicantPhone || '-'}</td></tr>
         <tr><td style="padding: 8px; border: 1px solid #e5e7eb;">填寫日期</td><td style="padding: 8px; border: 1px solid #e5e7eb;">${safeFillDate || '-'}</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #e5e7eb;">送出類型</td><td style="padding: 8px; border: 1px solid #e5e7eb;">${resubmissionFlag ? '編輯後重寄' : '首次送出'}</td></tr>
         <tr><td style="padding: 8px; border: 1px solid #e5e7eb;">登入者</td><td style="padding: 8px; border: 1px solid #e5e7eb;">${safeSubmitterName || '-'} ${safeSubmitterEmail ? `(${safeSubmitterEmail})` : ''}</td></tr>
         <tr><td style="padding: 8px; border: 1px solid #e5e7eb;">登入 UID</td><td style="padding: 8px; border: 1px solid #e5e7eb;">${sanitize(verifiedUser?.uid || '-')}</td></tr>
       </table>
@@ -129,6 +140,7 @@ export default async function handler(req, res) {
     `填表 Email: ${safeApplicantEmail || '-'}`,
     `聯絡電話: ${safeApplicantPhone || '-'}`,
     `填寫日期: ${safeFillDate || '-'}`,
+    `送出類型: ${resubmissionFlag ? '編輯後重寄' : '首次送出'}`,
     `登入者: ${safeSubmitterName || '-'} ${safeSubmitterEmail ? `(${safeSubmitterEmail})` : ''}`,
     `登入 UID: ${sanitize(verifiedUser?.uid || '-')}`,
   ].join('\n');

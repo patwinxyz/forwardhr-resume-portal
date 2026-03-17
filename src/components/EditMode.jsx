@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FileText, Mail, MapPin, Phone, Plus, Trash2 } from 'lucide-react';
 import CheckboxGroup from './CheckboxGroup';
 import {
@@ -28,7 +28,25 @@ const EditMode = ({
   onPreview,
   onCheckboxChange,
   showPreviewAction = true,
+  wizardMode = false,
 }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+
+  const steps = useMemo(
+    () => ['基本資料', '教育背景', '工作經驗', '專長與求職條件', '填寫日期'],
+    []
+  );
+  const totalSteps = steps.length;
+
+  useEffect(() => {
+    if (!wizardMode && currentStep !== 0) {
+      setCurrentStep(0);
+    }
+  }, [wizardMode, currentStep]);
+
+  const isStepVisible = (stepIndex) => !wizardMode || currentStep === stepIndex;
+  const progressPercent = wizardMode ? ((currentStep + 1) / totalSteps) * 100 : 100;
+
   const checkboxGroupSharedProps = {
     data,
     activeErrorField,
@@ -39,6 +57,24 @@ const EditMode = ({
 
   return (
     <div className="space-y-6">
+      {wizardMode && (
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+            <span>填寫進度</span>
+            <span>{currentStep + 1} / {totalSteps}</span>
+          </div>
+          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-600 transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          <div className="mt-2 text-sm text-blue-700 font-medium">
+            目前步驟：{steps[currentStep]}
+          </div>
+        </div>
+      )}
+
       {validationErrors.length > 0 && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4">
           <div className="font-semibold">請先修正：{validationErrors[0]}</div>
@@ -48,6 +84,7 @@ const EditMode = ({
         </div>
       )}
 
+      {isStepVisible(0) && (
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h2 className="text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-6 flex items-center gap-2">
           <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">1</span>
@@ -238,7 +275,9 @@ const EditMode = ({
           </div>
         </div>
       </div>
+      )}
 
+      {isStepVisible(1) && (
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-6">
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -302,7 +341,9 @@ const EditMode = ({
           可新增最多 4 筆教育背景，預覽與匯出會依序顯示。
         </div>
       </div>
+      )}
 
+      {isStepVisible(2) && (
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-6">
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -339,7 +380,9 @@ const EditMode = ({
           ))}
         </div>
       </div>
+      )}
 
+      {isStepVisible(3) && (
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h2 className="text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-6 flex items-center gap-2">
           <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">4</span>
@@ -374,7 +417,9 @@ const EditMode = ({
           </div>
         </div>
       </div>
+      )}
 
+      {isStepVisible(4) && (
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h2 className="text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-6 flex items-center gap-2">
           <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">5</span>
@@ -390,8 +435,42 @@ const EditMode = ({
           className={getErrorInputClass('fillDate', 'px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500')}
         />
       </div>
+      )}
 
-      {showPreviewAction && (
+      {wizardMode ? (
+        <div className="flex items-center justify-between pt-2">
+          <button
+            type="button"
+            onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
+            disabled={currentStep === 0}
+            className={`px-5 py-2.5 rounded-lg font-medium border ${
+              currentStep === 0
+                ? 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50'
+                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            上一步
+          </button>
+          {currentStep < totalSteps - 1 ? (
+            <button
+              type="button"
+              onClick={() => setCurrentStep((prev) => Math.min(totalSteps - 1, prev + 1))}
+              className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700"
+            >
+              下一步
+            </button>
+          ) : (
+            showPreviewAction && (
+              <button
+                onClick={onPreview}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-blue-700 shadow-md flex items-center gap-2"
+              >
+                完成填寫，前往匯出 / 預覽 <FileText className="w-5 h-5" />
+              </button>
+            )
+          )}
+        </div>
+      ) : showPreviewAction && (
         <div className="flex justify-end pt-4">
           <button
             onClick={onPreview}

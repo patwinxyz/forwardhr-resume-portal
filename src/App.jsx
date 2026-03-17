@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import AdminEditDrawer from './components/AdminEditDrawer';
+import AdminAuditLogModal from './components/AdminAuditLogModal';
 import AdminRecordPanel from './components/AdminRecordPanel';
 import AdminViewModal from './components/AdminViewModal';
 import EditMode from './components/EditMode';
@@ -208,6 +209,10 @@ const ResumeBuilder = () => {
   const [selectedAdminRecordId, setSelectedAdminRecordId] = useState('');
   const [adminQuery, setAdminQuery] = useState('');
   const [isAdminDrawerOpen, setIsAdminDrawerOpen] = useState(false);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false);
+  const [statusUpdatingRecordId, setStatusUpdatingRecordId] = useState('');
   const [viewingRecord, setViewingRecord] = useState(null);
   const [activeErrorField, setActiveErrorField] = useState('');
   const [notice, setNotice] = useState(null);
@@ -215,6 +220,7 @@ const ResumeBuilder = () => {
   const [authReady, setAuthReady] = useState(false);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [userSubmitState, setUserSubmitState] = useState(null);
   const hasBootstrappedUserResumeRef = useRef(false);
   const previewSectionRef = useRef(null);
   const adminEmails = parseAdminEmails();
@@ -285,9 +291,13 @@ const ResumeBuilder = () => {
       setCurrentDraftId('');
       setSelectedAdminRecordId('');
       setIsAdminDrawerOpen(false);
+      setIsAuditModalOpen(false);
+      setAuditLogs([]);
+      setStatusUpdatingRecordId('');
       setViewingRecord(null);
       setDraftRecords([]);
       hasBootstrappedUserResumeRef.current = false;
+      setUserSubmitState(null);
       showNotice('已登出。', 'info');
     } catch (error) {
       console.error('Logout failed:', error);
@@ -362,6 +372,48 @@ const ResumeBuilder = () => {
     await loadRecords({ q: adminQuery });
   };
 
+  const fetchAuditLogs = async () => {
+    if (!authUser) throw new Error('請先登入');
+    const headers = await getAuthRequestHeaders();
+    const response = await fetch(`${getApiEndpoint('/api/resume-record-audit')}?limit=200`, {
+      method: 'GET',
+      headers,
+    });
+    const result = await parseResponsePayload(response);
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || `紀錄查詢失敗（${response.status}）`);
+    }
+    return Array.isArray(result.logs) ? result.logs : [];
+  };
+
+  const openAuditLogModal = async () => {
+    if (!isAdmin || !isAdminRoute) return;
+    setIsAuditModalOpen(true);
+    setIsLoadingAuditLogs(true);
+    try {
+      const logs = await fetchAuditLogs();
+      setAuditLogs(logs);
+    } catch (error) {
+      console.error('Load audit logs failed:', error);
+      showNotice(`載入處理紀錄失敗：${error?.message || '請稍後再試。'}`, 'error');
+    } finally {
+      setIsLoadingAuditLogs(false);
+    }
+  };
+
+  const refreshAuditLogModal = async () => {
+    setIsLoadingAuditLogs(true);
+    try {
+      const logs = await fetchAuditLogs();
+      setAuditLogs(logs);
+    } catch (error) {
+      console.error('Refresh audit logs failed:', error);
+      showNotice(`載入處理紀錄失敗：${error?.message || '請稍後再試。'}`, 'error');
+    } finally {
+      setIsLoadingAuditLogs(false);
+    }
+  };
+
   useEffect(() => {
     if (!authReady || !authUser || isAdmin || isAdminRoute) return;
     if (hasBootstrappedUserResumeRef.current) return;
@@ -378,10 +430,12 @@ const ResumeBuilder = () => {
         if (latestRecord?.formData && typeof latestRecord.formData === 'object') {
           setData(normalizeResumeData(latestRecord.formData));
           setCurrentDraftId(latestRecord.id || '');
+          setUserSubmitState(null);
           showNotice('已自動載入你先前的履歷，可直接續填。', 'info');
         } else {
           setData(createBlankResumeData());
           setCurrentDraftId('');
+          setUserSubmitState(null);
           showNotice('尚未找到既有履歷，請開始填寫。', 'info');
         }
       } catch (error) {
@@ -519,6 +573,7 @@ const ResumeBuilder = () => {
     setData(createBlankResumeData());
     setSelectedAdminRecordId('');
     setIsPreviewMode(false);
+    setUserSubmitState(null);
     showNotice('已清空表單，可重新填寫。送出後會更新你的履歷。', 'info');
   };
 
@@ -554,6 +609,37 @@ const ResumeBuilder = () => {
     }
 
     loadAdminRecordForAction(record, { openDrawer: false, showLoadedNotice: false });
+  };
+
+  const updateContactStatus = async (record, nextStatus) => {
+    if (!record?.id || !isAdmin) return;
+    setStatusUpdatingRecordId(record.id);
+    try {
+      const headers = await getAuthRequestHeaders();
+      const response = await fetch(getApiEndpoint('/api/resume-records'), {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+          action: 'setContactStatus',
+          recordId: record.id,
+          setEmailReplied: Boolean(nextStatus?.setEmailReplied),
+          setPhoneReplied: Boolean(nextStatus?.setPhoneReplied),
+        }),
+      });
+      const result = await parseResponsePayload(response);
+      if (!response.ok || !result?.ok || !result?.record?.id) {
+        throw new Error(result?.message || `更新狀態失敗（${response.status}）`);
+      }
+
+      setDraftRecords((prev) =>
+        sortRecordsByNewest(prev.map((item) => (item.id === result.record.id ? result.record : item)))
+      );
+    } catch (error) {
+      console.error('Update contact status failed:', error);
+      showNotice(`更新聯絡狀態失敗：${error?.message || '請稍後再試。'}`, 'error');
+    } finally {
+      setStatusUpdatingRecordId('');
+    }
   };
 
   const focusField = (fieldKey) => {
@@ -671,6 +757,7 @@ const ResumeBuilder = () => {
   };
 
   const goBackToEdit = () => {
+    setUserSubmitState(null);
     setIsPreviewMode(false);
     setTimeout(() => {
       editSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1132,6 +1219,24 @@ const ResumeBuilder = () => {
     return window.btoa(binary);
   };
 
+  const markResumeSubmitted = async (recordId) => {
+    if (!recordId) return null;
+    const headers = await getAuthRequestHeaders();
+    const response = await fetch(getApiEndpoint('/api/resume-records'), {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({
+        action: 'markSubmitted',
+        recordId,
+      }),
+    });
+    const result = await parseResponsePayload(response);
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || `更新送出狀態失敗（${response.status}）`);
+    }
+    return result?.record || null;
+  };
+
   const sendResumeByEmail = async () => {
     if (isSendingEmail) return;
     if (!ensureValidBeforeAction('送出寄送')) return;
@@ -1158,6 +1263,8 @@ const ResumeBuilder = () => {
       if (!savedRecord) {
         throw new Error('送出前自動儲存失敗');
       }
+      const priorSubmitCount = Number(savedRecord?.submitCount || 0);
+      const isResubmission = priorSubmitCount > 0;
 
       const latestData = savedRecord?.formData ? normalizeResumeData(savedRecord.formData) : data;
       const renderData = {
@@ -1205,6 +1312,8 @@ const ResumeBuilder = () => {
           fillDate: renderData.fillDate,
           submitterEmail: authUser.email || '',
           submitterName: authUser.displayName || '',
+          isResubmission,
+          lastSubmittedAt: savedRecord?.lastSubmittedAt || '',
         }),
       });
 
@@ -1219,9 +1328,24 @@ const ResumeBuilder = () => {
         const detailMessage = result?.message || `寄送 API 錯誤（${response.status}）`;
         throw new Error(detailMessage);
       }
+      let submittedRecord = null;
+      try {
+        submittedRecord = await markResumeSubmitted(savedRecord.id);
+      } catch (markError) {
+        console.error('Mark submitted failed:', markError);
+      }
 
-      showNotice('已成功送出，Word 附件已寄到指定信箱。', 'success');
-      setData(latestData);
+      const finalRecordData = submittedRecord?.formData
+        ? normalizeResumeData(submittedRecord.formData)
+        : latestData;
+      setData(finalRecordData);
+      setCurrentDraftId(submittedRecord?.id || savedRecord.id || currentDraftId);
+      setUserSubmitState({
+        isResubmission,
+        sentAt: submittedRecord?.lastSubmittedAt || new Date().toISOString(),
+        waitDays: 3,
+      });
+      showNotice('履歷已成功送出。', 'success');
     } catch (error) {
       console.error('Send email failed:', error);
       const errorMessage = error instanceof Error ? error.message : '請稍後重試。';
@@ -1235,6 +1359,11 @@ const ResumeBuilder = () => {
   const isAuthConfigured = isFirebaseAuthConfigured();
   const educationForPreview = getEducationForOutput(data.education);
   const hasCertificates = hasValue(data.certificates);
+  const formatDateTime = (value) => {
+    const parsed = Date.parse(String(value || ''));
+    if (!Number.isFinite(parsed)) return '';
+    return new Date(parsed).toLocaleString('zh-TW', { hour12: false });
+  };
 
   if (!isAuthConfigured) {
     return (
@@ -1310,8 +1439,10 @@ const ResumeBuilder = () => {
               onQueryChange={handleAdminQueryChange}
               onSearch={handleAdminSearch}
               onReset={handleAdminReset}
+              onOpenAuditLogs={openAuditLogModal}
               records={draftRecords}
               isLoading={isLoadingDrafts}
+              isUpdatingStatusId={statusUpdatingRecordId}
               deletingId={deletingDraftId}
               editingRecordId={currentDraftId}
               selectedRecordId={selectedAdminRecordId}
@@ -1319,6 +1450,7 @@ const ResumeBuilder = () => {
               onView={handleAdminViewRecord}
               onEdit={handleAdminEditRecord}
               onDelete={deleteDraftRecord}
+              onUpdateContactStatus={updateContactStatus}
             />
             <AdminEditDrawer
               isOpen={isAdminDrawerOpen && Boolean(currentDraftId)}
@@ -1359,10 +1491,41 @@ const ResumeBuilder = () => {
               data={viewingRecord}
               onClose={() => setViewingRecord(null)}
             />
+            <AdminAuditLogModal
+              isOpen={isAuditModalOpen}
+              logs={auditLogs}
+              isLoading={isLoadingAuditLogs}
+              onClose={() => setIsAuditModalOpen(false)}
+              onRefresh={refreshAuditLogModal}
+            />
           </div>
         ) : (
           <div className="space-y-8">
-            {!isPreviewMode ? (
+            {userSubmitState ? (
+              <div className="w-full max-w-3xl mx-auto bg-white rounded-2xl border border-emerald-200 shadow-sm p-8">
+                <h2 className="text-2xl font-bold text-emerald-700">履歷已成功送出</h2>
+                <p className="text-gray-700 mt-3 leading-relaxed">
+                  已收到你的履歷，我們會在 {userSubmitState.waitDays} 個工作天內透過信件或電話與你聯繫，請留意收件匣與來電。
+                </p>
+                {userSubmitState.isResubmission && (
+                  <p className="mt-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    這次為編輯後重寄版本，系統已更新你的最新履歷內容。
+                  </p>
+                )}
+                <p className="mt-4 text-sm text-gray-500">
+                  送出時間：{formatDateTime(userSubmitState.sentAt)}
+                </p>
+                <div className="mt-6">
+                  <button
+                    type="button"
+                    onClick={goBackToEdit}
+                    className="px-5 py-2.5 rounded-lg font-medium text-gray-700 border border-gray-300 hover:bg-gray-50"
+                  >
+                    回到編輯頁
+                  </button>
+                </div>
+              </div>
+            ) : !isPreviewMode ? (
               <div ref={editSectionRef}>
                 <EditMode
                   data={data}
@@ -1382,6 +1545,7 @@ const ResumeBuilder = () => {
                   onPreview={goPreview}
                   onCheckboxChange={handleCheckboxChange}
                   showPreviewAction={true}
+                  wizardMode={true}
                 />
               </div>
             ) : (

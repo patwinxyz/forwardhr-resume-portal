@@ -2,19 +2,37 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, Loader2, Pencil, RefreshCw, Search, Trash2 } from 'lucide-react';
 
 const PAGE_SIZE = 8;
+
 const formatDateTime = (value) => {
   const parsed = Date.parse(String(value || ''));
   if (!Number.isFinite(parsed)) return String(value || '-');
   return new Date(parsed).toLocaleString('zh-TW', { hour12: false });
 };
 
+const getContactStage = (record) => {
+  const hasEmailReply = Boolean(record?.emailRepliedAt);
+  const hasPhoneReply = Boolean(record?.phoneRepliedAt);
+  if (hasEmailReply && hasPhoneReply) return 'done';
+  if (hasEmailReply || hasPhoneReply) return 'in-progress';
+  return 'pending';
+};
+
+const TABS = [
+  { key: 'all', label: '全部' },
+  { key: 'pending', label: '待處理' },
+  { key: 'in-progress', label: '處理中' },
+  { key: 'done', label: '已完成' },
+];
+
 const AdminRecordPanel = ({
   query,
   onQueryChange,
   onSearch,
   onReset,
+  onOpenAuditLogs,
   records,
   isLoading,
+  isUpdatingStatusId,
   deletingId,
   editingRecordId,
   selectedRecordId,
@@ -22,14 +40,21 @@ const AdminRecordPanel = ({
   onView,
   onEdit,
   onDelete,
+  onUpdateContactStatus,
 }) => {
   const [page, setPage] = useState(1);
+  const [tab, setTab] = useState('all');
 
   useEffect(() => {
     setPage(1);
-  }, [query]);
+  }, [query, tab]);
 
-  const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
+  const filteredRecords = useMemo(() => {
+    if (tab === 'all') return records;
+    return records.filter((record) => getContactStage(record) === tab);
+  }, [records, tab]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
 
   useEffect(() => {
     if (page > totalPages) {
@@ -39,8 +64,8 @@ const AdminRecordPanel = ({
 
   const pagedRecords = useMemo(() => {
     const startIndex = (page - 1) * PAGE_SIZE;
-    return records.slice(startIndex, startIndex + PAGE_SIZE);
-  }, [records, page]);
+    return filteredRecords.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [filteredRecords, page]);
 
   const renderActionButtons = (record, compact = false) => (
     <div className={`flex ${compact ? 'flex-wrap' : ''} justify-end gap-2`}>
@@ -71,12 +96,62 @@ const AdminRecordPanel = ({
     </div>
   );
 
+  const renderContactCheckboxes = (record) => {
+    const isUpdating = isUpdatingStatusId === record.id;
+    return (
+      <div className="flex items-center justify-center">
+        <input
+          type="checkbox"
+          checked={Boolean(record.emailRepliedAt)}
+          disabled={isUpdating}
+          onChange={(event) =>
+            onUpdateContactStatus(record, {
+              setEmailReplied: event.target.checked,
+              setPhoneReplied: Boolean(record.phoneRepliedAt),
+            })
+          }
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
+          title={record.emailRepliedAt ? `已回信：${formatDateTime(record.emailRepliedAt)}` : '未回信'}
+        />
+      </div>
+    );
+  };
+
+  const renderPhoneCheckboxes = (record) => {
+    const isUpdating = isUpdatingStatusId === record.id;
+    return (
+      <div className="flex items-center justify-center">
+        <input
+          type="checkbox"
+          checked={Boolean(record.phoneRepliedAt)}
+          disabled={isUpdating}
+          onChange={(event) =>
+            onUpdateContactStatus(record, {
+              setEmailReplied: Boolean(record.emailRepliedAt),
+              setPhoneReplied: event.target.checked,
+            })
+          }
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
+          title={record.phoneRepliedAt ? `已回電：${formatDateTime(record.phoneRepliedAt)}` : '未回電'}
+        />
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white border border-blue-100 rounded-2xl shadow-sm p-5 md:p-6">
       <div className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-blue-700">履歷資料管理</h2>
-          <p className="text-gray-600 mt-1">可搜尋姓名 / 證件號碼 / 電話；勾選一筆後可用上方按鈕匯出或列印。</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold text-blue-700">履歷資料管理</h2>
+            <p className="text-gray-600 mt-1">可搜尋姓名 / 證件號碼 / 電話；勾選一筆後可用上方按鈕匯出或列印。</p>
+          </div>
+          <button
+            onClick={onOpenAuditLogs}
+            className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+          >
+            處理紀錄
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3">
@@ -111,29 +186,47 @@ const AdminRecordPanel = ({
           </button>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
+          {TABS.map((item) => (
+            <button
+              key={item.key}
+              onClick={() => setTab(item.key)}
+              className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                tab === item.key
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
         <div className="border border-gray-200 rounded-xl overflow-hidden bg-white h-[62vh] min-h-[360px] max-h-[560px] flex flex-col">
           <div className="flex-1 overflow-y-auto hidden md:block">
             <table className="w-full table-fixed text-sm">
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
                   <th className="text-center px-3 py-3 w-12">選取</th>
-                  <th className="text-left px-3 py-3 w-1/5">姓名</th>
-                  <th className="text-left px-3 py-3 w-1/5">電話</th>
-                  <th className="text-left px-3 py-3 w-[34%]">Email</th>
+                  <th className="text-left px-3 py-3 w-[14%]">姓名</th>
+                  <th className="text-left px-3 py-3 w-[14%]">電話</th>
+                  <th className="text-left px-3 py-3 w-[28%]">Email</th>
+                  <th className="text-center px-3 py-3 w-[8%]">已回信</th>
+                  <th className="text-center px-3 py-3 w-[8%]">已回電</th>
                   <th className="text-right px-3 py-3">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td className="px-3 py-8 text-center text-gray-500" colSpan={5}>
+                    <td className="px-3 py-8 text-center text-gray-500" colSpan={7}>
                       <Loader2 className="w-5 h-5 animate-spin inline-block mr-2" />
                       查詢中...
                     </td>
                   </tr>
-                ) : records.length === 0 ? (
+                ) : filteredRecords.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-8 text-center text-gray-500" colSpan={5}>
+                    <td className="px-3 py-8 text-center text-gray-500" colSpan={7}>
                       查無資料
                     </td>
                   </tr>
@@ -157,9 +250,11 @@ const AdminRecordPanel = ({
                         <td className="px-3 py-3 text-gray-600">
                           <div className="truncate">{record.ownerEmail || '-'}</div>
                           <div className="truncate text-xs text-gray-500 mt-1">
-                            最後修改：{record.lastModifiedByEmail || record.ownerEmail || '-'}｜{formatDateTime(record.lastModifiedAt || record.updatedAt)}
+                            最後修改：{formatDateTime(record.lastModifiedAt || record.updatedAt)}
                           </div>
                         </td>
+                        <td className="px-3 py-3">{renderContactCheckboxes(record)}</td>
+                        <td className="px-3 py-3">{renderPhoneCheckboxes(record)}</td>
                         <td className="px-3 py-3">{renderActionButtons(record)}</td>
                       </tr>
                     );
@@ -175,7 +270,7 @@ const AdminRecordPanel = ({
                 <Loader2 className="w-5 h-5 animate-spin inline-block mr-2" />
                 查詢中...
               </div>
-            ) : records.length === 0 ? (
+            ) : filteredRecords.length === 0 ? (
               <div className="px-4 py-8 text-center text-gray-500 border border-gray-200 rounded-xl bg-white">
                 查無資料
               </div>
@@ -209,8 +304,40 @@ const AdminRecordPanel = ({
                       <div className="break-all"><span className="text-gray-500">Email：</span>{record.ownerEmail || '-'}</div>
                       <div className="break-all">
                         <span className="text-gray-500">最後修改：</span>
-                        {(record.lastModifiedByEmail || record.ownerEmail || '-') + '｜' + formatDateTime(record.lastModifiedAt || record.updatedAt)}
+                        {formatDateTime(record.lastModifiedAt || record.updatedAt)}
                       </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(record.emailRepliedAt)}
+                          disabled={isUpdatingStatusId === record.id}
+                          onChange={(event) =>
+                            onUpdateContactStatus(record, {
+                              setEmailReplied: event.target.checked,
+                              setPhoneReplied: Boolean(record.phoneRepliedAt),
+                            })
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        已回信
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(record.phoneRepliedAt)}
+                          disabled={isUpdatingStatusId === record.id}
+                          onChange={(event) =>
+                            onUpdateContactStatus(record, {
+                              setEmailReplied: Boolean(record.emailRepliedAt),
+                              setPhoneReplied: event.target.checked,
+                            })
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        已回電
+                      </label>
                     </div>
                     <div className="mt-3">{renderActionButtons(record, true)}</div>
                   </div>
@@ -221,7 +348,7 @@ const AdminRecordPanel = ({
 
           <div className="border-t border-gray-200 bg-gray-50 px-3 py-2 flex items-center justify-between">
             <div className="text-xs text-gray-600">
-              第 {page} / {totalPages} 頁，共 {records.length} 筆
+              第 {page} / {totalPages} 頁，共 {filteredRecords.length} 筆
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -247,3 +374,4 @@ const AdminRecordPanel = ({
 };
 
 export default AdminRecordPanel;
+

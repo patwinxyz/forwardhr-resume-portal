@@ -48,7 +48,11 @@ const canAccessRecord = ({ authUser, isAdmin, record }) => {
   if (isAdmin) return true;
   const requesterUid = normalizeUid(authUser?.uid);
   const ownerUid = normalizeUid(record?.ownerUid);
-  return Boolean(requesterUid) && Boolean(ownerUid) && requesterUid === ownerUid;
+  const requesterEmail = String(authUser?.email || '').trim().toLowerCase();
+  const ownerEmail = String(record?.ownerEmail || '').trim().toLowerCase();
+  const uidMatched = Boolean(requesterUid) && Boolean(ownerUid) && requesterUid === ownerUid;
+  const emailMatched = Boolean(requesterEmail) && Boolean(ownerEmail) && requesterEmail === ownerEmail;
+  return uidMatched || emailMatched;
 };
 
 const ensureActionPermission = ({ action, res, authUser, isAdmin, record, requestedOwnerUid = '' }) => {
@@ -110,6 +114,14 @@ const normalizeRecord = (doc) => {
     lastModifiedByEmail: data.lastModifiedByEmail || '',
     lastModifiedByName: data.lastModifiedByName || '',
     lastModifiedAt: data.lastModifiedAt || '',
+    emailRepliedAt: data.emailRepliedAt || '',
+    emailRepliedByEmail: data.emailRepliedByEmail || '',
+    phoneRepliedAt: data.phoneRepliedAt || '',
+    phoneRepliedByEmail: data.phoneRepliedByEmail || '',
+    completedAt: data.completedAt || '',
+    completedByEmail: data.completedByEmail || '',
+    submitCount: Number(data.submitCount || 0),
+    lastSubmittedAt: data.lastSubmittedAt || '',
     formData: data.formData || {},
   };
 };
@@ -356,14 +368,28 @@ const listRecords = async (req, res, authUser, isAdmin) => {
     arcNumber: toSearchKeyword(req.query?.arcNumber),
   };
 
-  const query = isAdmin
-    ? db.collection(COLLECTION_NAME)
-    : db.collection(COLLECTION_NAME).where('ownerUid', '==', authUser.uid);
-  const snapshot = await query.get();
+  let snapshot;
+  if (isAdmin) {
+    snapshot = await db.collection(COLLECTION_NAME).get();
+  } else {
+    snapshot = await db.collection(COLLECTION_NAME).where('ownerUid', '==', authUser.uid).get();
+    if (snapshot.empty && authUser.email) {
+      snapshot = await db
+        .collection(COLLECTION_NAME)
+        .where('ownerEmail', '==', String(authUser.email || '').trim().toLowerCase())
+        .get();
+    }
+  }
 
   const records = snapshot.docs
     .map(normalizeRecord)
-    .filter((record) => (isAdmin ? true : record.ownerUid === authUser.uid))
+    .filter((record) => {
+      if (isAdmin) return true;
+      const byUid = normalizeUid(record.ownerUid) === normalizeUid(authUser.uid);
+      const byEmail =
+        String(record.ownerEmail || '').trim().toLowerCase() === String(authUser.email || '').trim().toLowerCase();
+      return byUid || byEmail;
+    })
     .filter((record) => matchRecordByKeywords(record, filters))
     .sort((a, b) => toUpdatedTimestamp(b.updatedAt) - toUpdatedTimestamp(a.updatedAt));
 
@@ -431,7 +457,7 @@ const upsertRecord = async (req, res, authUser, isAdmin) => {
   }
 
   const ownerUid = existingData?.ownerUid || authUser.uid;
-  const ownerEmail = existingData?.ownerEmail || authUser.email || '';
+  const ownerEmail = String(existingData?.ownerEmail || authUser.email || '').trim().toLowerCase();
   const ownerName = existingData?.ownerName || authUser.name || '';
 
   let normalizedFormData;
@@ -458,6 +484,14 @@ const upsertRecord = async (req, res, authUser, isAdmin) => {
     lastModifiedByEmail: actor.email,
     lastModifiedByName: actor.name,
     lastModifiedAt: nowIso,
+    emailRepliedAt: String(existingData?.emailRepliedAt || ''),
+    emailRepliedByEmail: String(existingData?.emailRepliedByEmail || ''),
+    phoneRepliedAt: String(existingData?.phoneRepliedAt || ''),
+    phoneRepliedByEmail: String(existingData?.phoneRepliedByEmail || ''),
+    completedAt: String(existingData?.completedAt || ''),
+    completedByEmail: String(existingData?.completedByEmail || ''),
+    submitCount: Number(existingData?.submitCount || 0),
+    lastSubmittedAt: String(existingData?.lastSubmittedAt || ''),
   };
 
   if (existingData) {
@@ -523,9 +557,107 @@ const deleteRecord = async (req, res, authUser, isAdmin) => {
   return res.status(200).json({ ok: true });
 };
 
+const patchRecord = async (req, res, authUser, isAdmin) => {
+  const db = getFirestoreDb();
+  const actor = getActorProfile(authUser);
+  const body = parseBody(req);
+  const recordId = toSafeText(body?.recordId || req.query?.id);
+  const action = toSafeText(body?.action);
+
+  if (!recordId) {
+    return res.status(400).json({ ok: false, message: 'Missing record id' });
+  }
+  if (!action) {
+    return res.status(400).json({ ok: false, message: 'Missing action' });
+  }
+
+  const docRef = db.collection(COLLECTION_NAME).doc(recordId);
+  const snapshot = await docRef.get();
+  const existing = snapshot.exists ? (snapshot.data() || {}) : null;
+  if (!ensureActionPermission({ action: 'update', res, authUser, isAdmin, record: existing })) {
+    return;
+  }
+
+  const nowIso = new Date().toISOString();
+
+  if (action === 'setContactStatus') {
+    if (!isAdmin) {
+      return res.status(403).json({ ok: false, message: 'Forbidden' });
+    }
+
+    const setEmailReplied = body?.setEmailReplied === true;
+    const setPhoneReplied = body?.setPhoneReplied === true;
+
+    const nextEmailRepliedAt = setEmailReplied ? (existing.emailRepliedAt || nowIso) : '';
+    const nextPhoneRepliedAt = setPhoneReplied ? (existing.phoneRepliedAt || nowIso) : '';
+    const nextEmailRepliedByEmail = setEmailReplied ? (existing.emailRepliedByEmail || actor.email) : '';
+    const nextPhoneRepliedByEmail = setPhoneReplied ? (existing.phoneRepliedByEmail || actor.email) : '';
+    const isCompleted = Boolean(nextEmailRepliedAt) && Boolean(nextPhoneRepliedAt);
+
+    const payload = {
+      emailRepliedAt: nextEmailRepliedAt,
+      emailRepliedByEmail: nextEmailRepliedByEmail,
+      phoneRepliedAt: nextPhoneRepliedAt,
+      phoneRepliedByEmail: nextPhoneRepliedByEmail,
+      completedAt: isCompleted ? (existing.completedAt || nowIso) : '',
+      completedByEmail: isCompleted ? (existing.completedByEmail || actor.email) : '',
+      updatedAt: nowIso,
+      lastModifiedByUid: actor.uid,
+      lastModifiedByEmail: actor.email,
+      lastModifiedByName: actor.name,
+      lastModifiedAt: nowIso,
+    };
+
+    await docRef.update(payload);
+    await writeAuditLog(db, {
+      action: 'set_contact_status',
+      actorUid: actor.uid,
+      actorEmail: actor.email,
+      actorName: actor.name,
+      isAdmin,
+      recordId,
+      ownerUid: normalizeUid(existing?.ownerUid),
+      ownerEmail: String(existing?.ownerEmail || '').trim().toLowerCase(),
+      setEmailReplied,
+      setPhoneReplied,
+      completed: isCompleted,
+    });
+
+    const saved = await docRef.get();
+    return res.status(200).json({ ok: true, record: normalizeRecord(saved) });
+  }
+
+  if (action === 'markSubmitted') {
+    const currentSubmitCount = Number(existing.submitCount || 0);
+    const payload = {
+      submitCount: currentSubmitCount + 1,
+      lastSubmittedAt: nowIso,
+      updatedAt: nowIso,
+    };
+    await docRef.update(payload);
+    await writeAuditLog(db, {
+      action: 'mark_submitted',
+      actorUid: actor.uid,
+      actorEmail: actor.email,
+      actorName: actor.name,
+      isAdmin,
+      recordId,
+      ownerUid: normalizeUid(existing?.ownerUid),
+      ownerEmail: String(existing?.ownerEmail || '').trim().toLowerCase(),
+      submitCountBefore: currentSubmitCount,
+      submitCountAfter: currentSubmitCount + 1,
+    });
+
+    const saved = await docRef.get();
+    return res.status(200).json({ ok: true, record: normalizeRecord(saved) });
+  }
+
+  return res.status(400).json({ ok: false, message: `Unsupported action: ${action}` });
+};
+
 export default async function handler(req, res) {
-  if (!['GET', 'POST', 'DELETE'].includes(req.method || '')) {
-    res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
+  if (!['GET', 'POST', 'PATCH', 'DELETE'].includes(req.method || '')) {
+    res.setHeader('Allow', ['GET', 'POST', 'PATCH', 'DELETE']);
     return res.status(405).json({ ok: false, message: 'Method Not Allowed' });
   }
 
@@ -536,6 +668,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') return await listRecords(req, res, authUser, isAdmin);
     if (req.method === 'POST') return await upsertRecord(req, res, authUser, isAdmin);
+    if (req.method === 'PATCH') return await patchRecord(req, res, authUser, isAdmin);
     return await deleteRecord(req, res, authUser, isAdmin);
   } catch (error) {
     console.error('resume-records API failed:', error);

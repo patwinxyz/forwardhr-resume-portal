@@ -29,11 +29,12 @@ const EditMode = ({
   onCheckboxChange,
   showPreviewAction = true,
   wizardMode = false,
+  compactMode = false,
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
   const steps = useMemo(
-    () => ['基本資料', '教育背景', '工作經驗', '專長與求職條件', '填寫日期'],
+    () => ['基本資料', '學經歷', '專長與求職條件'],
     []
   );
   const totalSteps = steps.length;
@@ -56,7 +57,7 @@ const EditMode = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className={`${compactMode ? 'md:[zoom:0.75]' : ''} space-y-6`}>
       {wizardMode && (
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
@@ -343,11 +344,11 @@ const EditMode = ({
       </div>
       )}
 
-      {isStepVisible(2) && (
+      {isStepVisible(1) && (
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-6">
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">3</span>
+            <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">2</span>
             工作經驗 <span className="text-sm font-normal text-gray-500">(兼職或實習經驗可)</span>
           </h2>
           {data.experience.length < 4 && (
@@ -382,10 +383,10 @@ const EditMode = ({
       </div>
       )}
 
-      {isStepVisible(3) && (
+      {isStepVisible(2) && (
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h2 className="text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-6 flex items-center gap-2">
-          <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">4</span>
+          <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">3</span>
           專長與求職條件
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -416,24 +417,6 @@ const EditMode = ({
             </div>
           </div>
         </div>
-      </div>
-      )}
-
-      {isStepVisible(4) && (
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h2 className="text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-6 flex items-center gap-2">
-          <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">5</span>
-          填寫日期
-        </h2>
-        <input
-          type="date"
-          name="fillDate"
-          value={data.fillDate}
-          onChange={onChange}
-          data-field-key="fillDate"
-          id="field-fillDate"
-          className={getErrorInputClass('fillDate', 'px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500')}
-        />
       </div>
       )}
 

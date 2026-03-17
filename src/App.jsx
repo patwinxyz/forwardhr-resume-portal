@@ -460,7 +460,12 @@ const ResumeBuilder = () => {
     setIsSavingDraft(true);
     try {
       const headers = await getAuthRequestHeaders();
-      const title = `${data.name || '未命名'}_${data.fillDate || getTodayDateText()}`;
+      const autoFillDate = isAdmin ? (data.fillDate || getTodayDateText()) : getTodayDateText();
+      const formDataForSave = {
+        ...data,
+        fillDate: autoFillDate,
+      };
+      const title = `${formDataForSave.name || '未命名'}_${formDataForSave.fillDate || getTodayDateText()}`;
 
       const response = await fetch(getApiEndpoint('/api/resume-records'), {
         method: 'POST',
@@ -468,7 +473,7 @@ const ResumeBuilder = () => {
         body: JSON.stringify({
           recordId: currentDraftId,
           title,
-          formData: data,
+          formData: formDataForSave,
         }),
       });
       const result = await parseResponsePayload(response);
@@ -719,8 +724,6 @@ const ResumeBuilder = () => {
     if (data.jobTypes.length === 0) pushError('jobTypes', '希望工作內容（至少勾選一項）');
     if (data.workHours.length === 0) pushError('workHours', '可接受工作時間（至少勾選一項）');
     if (!hasValue(data.salary)) pushError('salary', '希望待遇');
-    if (!hasValue(data.fillDate)) pushError('fillDate', '填寫日期');
-
     if (data.languages.includes('其他') && !hasValue(data.otherLanguage)) {
       pushError('otherLanguage', '語言能力選擇「其他」時需填寫說明');
     }
@@ -1358,6 +1361,12 @@ const ResumeBuilder = () => {
   const isAuthConfigured = isFirebaseAuthConfigured();
   const educationForPreview = getEducationForOutput(data.education);
   const hasCertificates = hasValue(data.certificates);
+  const userPreviewData = isAdmin
+    ? data
+    : {
+        ...data,
+        fillDate: getTodayDateText(),
+      };
   const formatDateTime = (value) => {
     const parsed = Date.parse(String(value || ''));
     if (!Number.isFinite(parsed)) return '';
@@ -1545,6 +1554,7 @@ const ResumeBuilder = () => {
                   onCheckboxChange={handleCheckboxChange}
                   showPreviewAction={true}
                   wizardMode={true}
+                  compactMode={true}
                 />
               </div>
             ) : (
@@ -1555,7 +1565,7 @@ const ResumeBuilder = () => {
                   </div>
                   <div className="max-h-[72vh] overflow-auto p-4 bg-slate-100">
                     <PreviewMode
-                      data={data}
+                      data={userPreviewData}
                       educationForOutput={educationForPreview}
                       hasCertificates={hasCertificates}
                       previewScale={0.8}

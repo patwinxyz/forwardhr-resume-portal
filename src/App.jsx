@@ -258,7 +258,8 @@ const ResumeBuilder = () => {
   }, [authReady, authUser, isAdmin, isAdminRoute]);
 
   useEffect(() => {
-    if (!authReady || !authUser || !isAdminRoute || isAdmin) return;
+    if (!authReady || !isAdminRoute) return;
+    if (authUser && isAdmin) return;
     if (typeof window === 'undefined') return;
     window.location.replace('/');
   }, [authReady, authUser, isAdminRoute, isAdmin]);
@@ -907,7 +908,7 @@ const ResumeBuilder = () => {
 
     const recordId = String(options?.recordId || currentDraftId || '').trim();
     if (!recordId) {
-      return rawPhotoValue;
+      return '';
     }
 
     try {
@@ -921,10 +922,10 @@ const ResumeBuilder = () => {
         return String(result.dataUrl);
       }
     } catch (error) {
-      console.warn('無法取得可嵌入的照片 Data URL，將沿用目前照片來源：', error);
+      console.warn('無法取得可嵌入的照片 Data URL，將略過照片匯出：', error);
     }
 
-    return rawPhotoValue;
+    return '';
   };
 
   const buildLegacyWordBlob = async (sourceData = data, options = {}) => {

@@ -192,6 +192,7 @@ const findLatestRecordByOwner = async (db, ownerUid, ownerEmail) => {
 };
 
 const isDataUrlImage = (value) => /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(String(value || ''));
+const isHttpUrl = (value) => /^https?:\/\//i.test(String(value || ''));
 
 const parseImageDataUrl = (dataUrl) => {
   const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/i.exec(String(dataUrl || ''));
@@ -293,15 +294,18 @@ const applyPhotoPersistence = async ({
     return normalizedFormData;
   }
 
-  // 已存在的 URL（例如載入歷史後儲存）
-  if (/^https?:\/\//i.test(incomingPhoto)) {
+  // 只允許沿用既有 URL，禁止前端任意指定外部 URL（避免 SSRF 風險）。
+  if (isHttpUrl(incomingPhoto)) {
+    if (!existingPhotoURL) {
+      throw new Error('不允許直接指定外部照片網址，請重新上傳照片');
+    }
+    if (incomingPhoto !== existingPhotoURL) {
+      throw new Error('照片網址異常，請重新上傳照片');
+    }
     normalizedFormData.photoPath = existingPhotoPath;
-    normalizedFormData.photoURL = incomingPhoto;
-    normalizedFormData.photoDataUrl = incomingPhoto;
-    normalizedFormData.photoUpdatedAt =
-      incomingPhoto === existingPhotoURL
-        ? String(existingFormData?.photoUpdatedAt || '')
-        : new Date().toISOString();
+    normalizedFormData.photoURL = existingPhotoURL;
+    normalizedFormData.photoDataUrl = existingPhotoURL;
+    normalizedFormData.photoUpdatedAt = String(existingFormData?.photoUpdatedAt || '');
     return normalizedFormData;
   }
 

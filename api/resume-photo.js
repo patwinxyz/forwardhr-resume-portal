@@ -1,6 +1,15 @@
 import { getFirestoreDb, getStorageBucket, verifyFirebaseIdToken } from './_lib/firebaseAdmin.js';
 
 const COLLECTION_NAME = 'resumeRecords';
+const MAX_PHOTO_DOWNLOAD_BYTES = 10 * 1024 * 1024;
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/bmp',
+]);
 const ADMIN_EMAILS = new Set(
   String(process.env.ADMIN_EMAILS || process.env.VITE_ADMIN_EMAILS || '')
     .split(',')
@@ -16,6 +25,16 @@ const toSafeText = (value) =>
 const normalizeUid = (value) => toSafeText(value);
 
 const isDataUrlImage = (value) => /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(String(value || ''));
+
+const getDataUrlPhotoInfo = (dataUrl) => {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/i.exec(String(dataUrl || ''));
+  if (!match) return null;
+  const mimeType = String(match[1] || '').toLowerCase();
+  const base64Data = String(match[2] || '');
+  const paddingLength = (base64Data.match(/=+$/) || [''])[0].length;
+  const byteSize = Math.floor((base64Data.length * 3) / 4) - paddingLength;
+  return { mimeType, byteSize };
+};
 
 const getBearerToken = (req) => {
   const authHeader = req.headers?.authorization || req.headers?.Authorization || '';
@@ -72,38 +91,48 @@ const getMimeTypeFromBuffer = (buffer, fallback = 'image/jpeg') => {
   return fallback;
 };
 
+const ensureAllowedImageMimeType = (mimeType) => {
+  const normalized = String(mimeType || '').toLowerCase();
+  if (!ALLOWED_IMAGE_MIME_TYPES.has(normalized)) {
+    throw new Error(`不支援的圖片格式：${normalized || 'unknown'}`);
+  }
+  return normalized;
+};
+
 const getPhotoDataUrlFromStoragePath = async (photoPath) => {
   const bucket = getStorageBucket();
   const file = bucket.file(photoPath);
-  const [buffer] = await file.download();
   let mimeType = getImageMimeByExtension(photoPath);
+  let expectedByteSize = 0;
 
   try {
     const [metadata] = await file.getMetadata();
+    const metadataSize = Number.parseInt(String(metadata?.size || '0'), 10);
+    expectedByteSize = Number.isFinite(metadataSize) ? metadataSize : 0;
+    if (expectedByteSize > MAX_PHOTO_DOWNLOAD_BYTES) {
+      throw new Error('照片過大，無法匯出（超過 10MB）');
+    }
     const metadataMimeType = String(metadata?.contentType || '').trim().toLowerCase();
     if (metadataMimeType.startsWith('image/')) {
       mimeType = metadataMimeType;
     }
   } catch (error) {
-    // 若 metadata 讀取失敗，改用副檔名或 magic number 判斷。
+    if (String(error?.message || '').includes('超過 10MB')) {
+      throw error;
+    }
+    // metadata 讀取失敗時，改用副檔名或 magic number 判斷。
+  }
+
+  const [buffer] = await file.download();
+  if (!buffer || buffer.length === 0) {
+    throw new Error('照片內容為空');
+  }
+  if (buffer.length > MAX_PHOTO_DOWNLOAD_BYTES || expectedByteSize > MAX_PHOTO_DOWNLOAD_BYTES) {
+    throw new Error('照片過大，無法匯出（超過 10MB）');
   }
 
   mimeType = getMimeTypeFromBuffer(buffer, mimeType);
-  return `data:${mimeType};base64,${buffer.toString('base64')}`;
-};
-
-const getPhotoDataUrlFromUrl = async (photoUrl) => {
-  const response = await fetch(photoUrl);
-  if (!response.ok) {
-    throw new Error(`讀取照片失敗（${response.status}）`);
-  }
-  const arrayBuffer = await response.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  const headerMime = String(response.headers.get('content-type') || '')
-    .split(';')[0]
-    .trim()
-    .toLowerCase();
-  const mimeType = getMimeTypeFromBuffer(buffer, headerMime.startsWith('image/') ? headerMime : 'image/jpeg');
+  ensureAllowedImageMimeType(mimeType);
   return `data:${mimeType};base64,${buffer.toString('base64')}`;
 };
 
@@ -161,6 +190,14 @@ export default async function handler(req, res) {
     const photoURL = String(formData.photoURL || '').trim();
 
     if (isDataUrlImage(photoDataUrl)) {
+      const info = getDataUrlPhotoInfo(photoDataUrl);
+      if (!info) {
+        return res.status(400).json({ ok: false, message: 'Photo data URL is invalid' });
+      }
+      ensureAllowedImageMimeType(info.mimeType);
+      if (info.byteSize > MAX_PHOTO_DOWNLOAD_BYTES) {
+        return res.status(413).json({ ok: false, message: '照片過大，無法匯出（超過 10MB）' });
+      }
       return res.status(200).json({ ok: true, dataUrl: photoDataUrl });
     }
 
@@ -170,8 +207,7 @@ export default async function handler(req, res) {
     }
 
     if (/^https?:\/\//i.test(photoURL)) {
-      const dataUrl = await getPhotoDataUrlFromUrl(photoURL);
-      return res.status(200).json({ ok: true, dataUrl });
+      return res.status(409).json({ ok: false, message: '舊版照片連結不支援匯出，請重新上傳照片後再匯出。' });
     }
 
     return res.status(404).json({ ok: false, message: 'Photo not found' });

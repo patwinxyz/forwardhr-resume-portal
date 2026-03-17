@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Mail, MapPin, Phone, Plus, Trash2 } from 'lucide-react';
 import CheckboxGroup from './CheckboxGroup';
 import {
@@ -33,6 +33,8 @@ const EditMode = ({
   compactMode = false,
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
+  const stepTopRef = useRef(null);
+  const prevStepRef = useRef(0);
 
   const steps = useMemo(
     () => ['基本資料', '學經歷', '專長與求職條件'],
@@ -46,6 +48,18 @@ const EditMode = ({
     }
   }, [wizardMode, currentStep]);
 
+  useEffect(() => {
+    if (!wizardMode) return;
+    if (prevStepRef.current === currentStep) return;
+    prevStepRef.current = currentStep;
+
+    const anchor = stepTopRef.current;
+    if (!anchor) return;
+    window.requestAnimationFrame(() => {
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [currentStep, wizardMode]);
+
   const isStepVisible = (stepIndex) => !wizardMode || currentStep === stepIndex;
   const progressPercent = wizardMode ? ((currentStep + 1) / totalSteps) * 100 : 100;
 
@@ -58,7 +72,8 @@ const EditMode = ({
   };
 
   return (
-    <div className={`resume-edit-form ${compactMode ? 'md:[zoom:0.90]' : ''} space-y-4 sm:space-y-6`}>
+    <div className={`resume-edit-form ${wizardMode ? 'pb-28 sm:pb-0' : ''} ${compactMode ? 'md:[zoom:0.90]' : ''} space-y-4 sm:space-y-6`}>
+      <div ref={stepTopRef} />
       {wizardMode && (
         <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
@@ -433,8 +448,8 @@ const EditMode = ({
       </div>
 
       {wizardMode ? (
-        <div className="sticky bottom-0 z-10 -mx-1 mt-2 border-t border-gray-200 bg-white/95 px-1 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] backdrop-blur sm:static sm:mx-0 sm:mt-0 sm:border-0 sm:bg-transparent sm:p-0">
-          <div className="flex items-center justify-between gap-2 min-h-[64px]">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] backdrop-blur sm:static sm:inset-auto sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0">
+          <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 min-h-[64px]">
           <button
             type="button"
             onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}

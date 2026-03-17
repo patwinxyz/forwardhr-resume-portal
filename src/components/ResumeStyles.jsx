@@ -148,14 +148,14 @@ const previewStyles = `
   }
   @media (max-width: 768px) {
     .preview-stage {
-      padding: 6px 0 20px;
+      padding: 4px 0 16px;
     }
     .print-area {
-      padding: 10px 8px 14px;
-      border-radius: 12px;
+      padding: 8px 6px 12px;
+      border-radius: 10px;
     }
     .preview-zoomed .resume-table {
-      min-width: calc(860px * var(--preview-scale, 1));
+      min-width: calc(760px * var(--preview-scale, 1));
     }
     .resume-table-wrapper {
       margin: 0 -2px;

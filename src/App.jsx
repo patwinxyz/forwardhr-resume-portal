@@ -65,6 +65,17 @@ const formatIsoMonthInput = (rawValue) => {
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}`;
 };
 
+const getDefaultPreviewScale = () => {
+  if (typeof window === 'undefined') return 0.8;
+  const width = window.innerWidth || 1024;
+  if (width < 480) return 0.56;
+  if (width < 640) return 0.62;
+  if (width < 1024) return 0.72;
+  return 0.8;
+};
+
+const clampPreviewScale = (value) => Math.min(1, Math.max(0.55, Number(value) || 0.8));
+
 const normalizeResumeData = (source) => {
   const raw = source && typeof source === 'object' ? source : {};
   const data = {
@@ -248,6 +259,7 @@ const ResumeBuilder = () => {
   const [authReady, setAuthReady] = useState(false);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [previewScale, setPreviewScale] = useState(() => getDefaultPreviewScale());
   const [userSubmitState, setUserSubmitState] = useState(null);
   const hasBootstrappedUserResumeRef = useRef(false);
   const previewSectionRef = useRef(null);
@@ -791,6 +803,7 @@ const ResumeBuilder = () => {
 
   const goPreview = () => {
     if (!ensureValidBeforeAction('預覽')) return;
+    setPreviewScale(getDefaultPreviewScale());
     setIsPreviewMode(true);
     previewSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
@@ -1636,37 +1649,66 @@ const ResumeBuilder = () => {
                 />
               </div>
             ) : (
-              <div ref={previewSectionRef}>
+              <div ref={previewSectionRef} className="pb-28 sm:pb-0">
                 <div className="w-full max-w-[1200px] mx-auto bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-                    <h3 className="text-lg font-bold text-gray-800">履歷檢視：{data.name || '未命名'}</h3>
+                  <div className="px-3 sm:px-4 py-3 border-b border-gray-200 bg-white">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="text-base sm:text-lg font-bold text-gray-800">履歷檢視：{data.name || '未命名'}</h3>
+                      <span className="text-xs text-gray-500 whitespace-nowrap mt-1">左右滑動可檢視完整欄位</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewScale((prev) => clampPreviewScale(prev - 0.05))}
+                        className="px-3 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                      >
+                        縮小
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewScale(getDefaultPreviewScale())}
+                        className="px-3 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                      >
+                        適中
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewScale((prev) => clampPreviewScale(prev + 0.05))}
+                        className="px-3 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                      >
+                        放大
+                      </button>
+                      <span className="text-xs text-gray-500 ml-1">縮放 {Math.round(previewScale * 100)}%</span>
+                    </div>
                   </div>
-                  <div className="max-h-[72vh] overflow-auto p-4 bg-slate-100">
+                  <div className="max-h-[calc(100vh-250px)] sm:max-h-[72vh] overflow-auto p-2 sm:p-4 bg-slate-100">
                     <PreviewMode
                       data={userPreviewData}
                       educationForOutput={educationForPreview}
                       hasCertificates={hasCertificates}
-                      previewScale={0.8}
+                      previewScale={previewScale}
                     />
                   </div>
-                  <div className="px-4 py-4 border-t border-gray-200 bg-white flex flex-col sm:flex-row gap-3 sm:justify-end">
-                    <button
-                      type="button"
-                      onClick={goBackToEdit}
-                      className="px-5 py-2.5 rounded-lg font-medium text-gray-700 border border-gray-300 hover:bg-gray-50"
-                    >
-                      回去修改
-                    </button>
-                    <button
-                      type="button"
-                      onClick={sendResumeByEmail}
-                      disabled={isSendingEmail}
-                      className={`px-5 py-2.5 rounded-lg font-medium text-white ${
-                        isSendingEmail ? 'bg-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
-                      }`}
-                    >
-                      {isSendingEmail ? '送出中...' : '送出寄送'}
-                    </button>
+                  <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] backdrop-blur sm:static sm:border-t sm:bg-white sm:px-4 sm:py-4">
+                    <div className="w-full max-w-[1200px] mx-auto flex flex-col sm:flex-row gap-2 sm:gap-3 sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={goBackToEdit}
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-lg font-medium text-gray-700 border border-gray-300 hover:bg-gray-50"
+                      >
+                        回去修改
+                      </button>
+                      <button
+                        type="button"
+                        onClick={sendResumeByEmail}
+                        disabled={isSendingEmail}
+                        className={`w-full sm:w-auto px-5 py-2.5 rounded-lg font-medium text-white ${
+                          isSendingEmail ? 'bg-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
+                        }`}
+                      >
+                        {isSendingEmail ? '送出中...' : '送出寄送'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

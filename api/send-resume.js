@@ -1,7 +1,10 @@
 import { Resend } from 'resend';
-import { verifyFirebaseIdToken } from './_lib/firebaseAdmin.js';
+import { getFirestoreDb, verifyFirebaseIdToken } from './_lib/firebaseAdmin.js';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RATE_LIMIT_COLLECTION = 'apiRateLimitDaily';
+const DEFAULT_DAILY_LIMIT_PER_UID = 6;
+const DEFAULT_DAILY_LIMIT_PER_IP = 24;
 
 const sanitize = (value) =>
   String(value || '')
@@ -49,6 +52,97 @@ const getBearerToken = (req) => {
   return match?.[1]?.trim() || '';
 };
 
+const toPositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const getTaipeiDateKey = () => {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+
+  const year = parts.find((item) => item.type === 'year')?.value || '0000';
+  const month = parts.find((item) => item.type === 'month')?.value || '00';
+  const day = parts.find((item) => item.type === 'day')?.value || '00';
+  return `${year}-${month}-${day}`;
+};
+
+const toDocSafeKey = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/[^A-Za-z0-9:_-]/g, '_')
+    .slice(0, 120);
+
+const getClientIp = (req) => {
+  const forwarded = String(req.headers?.['x-forwarded-for'] || req.headers?.['X-Forwarded-For'] || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)[0];
+  const realIp = String(req.headers?.['x-real-ip'] || req.headers?.['X-Real-IP'] || '').trim();
+  const cfIp = String(req.headers?.['cf-connecting-ip'] || req.headers?.['CF-Connecting-IP'] || '').trim();
+  const socketIp = String(req.socket?.remoteAddress || '').trim();
+  const candidate = forwarded || realIp || cfIp || socketIp || '';
+  if (!candidate) return '';
+  return candidate.replace(/[^0-9a-fA-F:.,]/g, '').slice(0, 64);
+};
+
+const consumeDailyQuota = async ({ db, scope, identityKey, identityValue, dateKey, maxAllowed }) => {
+  if (!maxAllowed || maxAllowed <= 0) {
+    return { allowed: false, used: 0, remaining: 0 };
+  }
+
+  const safeIdentityKey = toDocSafeKey(identityKey);
+  if (!safeIdentityKey) {
+    return { allowed: false, used: 0, remaining: 0 };
+  }
+
+  const docId = `${scope}_${dateKey}_${safeIdentityKey}`.slice(0, 200);
+  const docRef = db.collection(RATE_LIMIT_COLLECTION).doc(docId);
+  const nowIso = new Date().toISOString();
+
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(docRef);
+      const currentCount = Number(snapshot.data()?.count || 0);
+      if (currentCount >= maxAllowed) {
+        throw new Error('DAILY_QUOTA_EXCEEDED');
+      }
+
+      const nextCount = currentCount + 1;
+      const payload = {
+        scope,
+        dateKey,
+        count: nextCount,
+        maxAllowed,
+        identityValue: String(identityValue || ''),
+        updatedAt: nowIso,
+      };
+
+      if (snapshot.exists) {
+        transaction.update(docRef, payload);
+      } else {
+        transaction.set(docRef, { ...payload, createdAt: nowIso });
+      }
+
+      return {
+        used: nextCount,
+        remaining: Math.max(0, maxAllowed - nextCount),
+      };
+    });
+
+    return { allowed: true, ...result };
+  } catch (error) {
+    if (String(error?.message || '') === 'DAILY_QUOTA_EXCEEDED') {
+      return { allowed: false, used: maxAllowed, remaining: 0 };
+    }
+    throw error;
+  }
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
@@ -90,6 +184,58 @@ export default async function handler(req, res) {
       message:
         'Server email settings are missing or invalid. Please set RESEND_API_KEY, MAIL_FROM, MAIL_TO (optional MAIL_FROM_NAME).',
       details: configErrors,
+    });
+  }
+
+  const uidDailyLimit = toPositiveInt(process.env.SEND_RESUME_DAILY_LIMIT_PER_UID, DEFAULT_DAILY_LIMIT_PER_UID);
+  const ipDailyLimit = toPositiveInt(process.env.SEND_RESUME_DAILY_LIMIT_PER_IP, DEFAULT_DAILY_LIMIT_PER_IP);
+  const dateKey = getTaipeiDateKey();
+  const requesterUid = sanitize(verifiedUser?.uid || '');
+  const requesterIp = getClientIp(req);
+
+  try {
+    const db = getFirestoreDb();
+
+    if (requesterIp) {
+      const ipQuota = await consumeDailyQuota({
+        db,
+        scope: 'send-resume-ip',
+        identityKey: requesterIp,
+        identityValue: requesterIp,
+        dateKey,
+        maxAllowed: ipDailyLimit,
+      });
+
+      if (!ipQuota.allowed) {
+        return res.status(429).json({
+          ok: false,
+          message: 'Daily request limit reached for current network. Please try again tomorrow (Asia/Taipei).',
+          details: [`IP daily limit: ${ipDailyLimit}`, `Date: ${dateKey}`],
+        });
+      }
+    }
+
+    const uidQuota = await consumeDailyQuota({
+      db,
+      scope: 'send-resume-uid',
+      identityKey: requesterUid,
+      identityValue: requesterUid,
+      dateKey,
+      maxAllowed: uidDailyLimit,
+    });
+
+    if (!uidQuota.allowed) {
+      return res.status(429).json({
+        ok: false,
+        message: 'Daily request limit reached for current account. Please try again tomorrow (Asia/Taipei).',
+        details: [`Account daily limit: ${uidDailyLimit}`, `Date: ${dateKey}`],
+      });
+    }
+  } catch (error) {
+    console.error('Rate limit check failed:', error);
+    return res.status(503).json({
+      ok: false,
+      message: 'Rate limit service is temporarily unavailable. Please try again later.',
     });
   }
 

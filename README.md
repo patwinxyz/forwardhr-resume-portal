@@ -94,6 +94,9 @@ npm run dev
 - 可用格式 B：`Forward HR <no-reply@forwardhrm.com>`
 4. （選填）設定寄件名稱 `MAIL_FROM_NAME=Forward HR`（當 `MAIL_FROM` 是純 email 時會自動套用）
 5. 設定收件者（`MAIL_TO`，可多個用逗號），例如：`hr@forwardhrm.com,manager@forwardhrm.com`
+6. （建議）設定每日硬上限（以 `Asia/Taipei` 日期計算）
+- `SEND_RESUME_DAILY_LIMIT_PER_UID=6`（每個登入帳號每天最多寄送次數）
+- `SEND_RESUME_DAILY_LIMIT_PER_IP=24`（每個來源 IP 每天最多寄送次數）
 
 ## Vercel 部署
 
@@ -110,6 +113,8 @@ npm run dev
 - `MAIL_FROM`
 - `MAIL_FROM_NAME`（選填）
 - `MAIL_TO`
+- `SEND_RESUME_DAILY_LIMIT_PER_UID`（建議）
+- `SEND_RESUME_DAILY_LIMIT_PER_IP`（建議）
 - `FIREBASE_SERVICE_ACCOUNT_JSON`（或改用分拆三個變數）
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_CLIENT_EMAIL`

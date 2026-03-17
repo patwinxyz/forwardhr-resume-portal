@@ -58,9 +58,9 @@ const EditMode = ({
   };
 
   return (
-    <div className={`${compactMode ? 'md:[zoom:0.90]' : ''} space-y-6`}>
+    <div className={`resume-edit-form ${compactMode ? 'md:[zoom:0.90]' : ''} space-y-4 sm:space-y-6`}>
       {wizardMode && (
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
             <span>填寫進度</span>
             <span>{currentStep + 1} / {totalSteps}</span>
@@ -78,7 +78,7 @@ const EditMode = ({
       )}
 
       {validationErrors.length > 0 && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 sm:px-5 sm:py-4">
           <div className="font-semibold">請先修正：{validationErrors[0]}</div>
           <div className="text-sm mt-1">
             {showPreviewAction ? '完成後再進行預覽、列印或匯出。' : '完成後再進行下一步操作。'}
@@ -86,15 +86,15 @@ const EditMode = ({
         </div>
       )}
 
-      <div className={wizardMode ? 'bg-white border border-gray-200 rounded-xl p-4 md:p-5' : ''}>
-      <div className={wizardMode ? 'min-h-[520px] md:min-h-[640px] space-y-6' : 'space-y-6'}>
+      <div className={wizardMode ? 'bg-white border border-gray-200 rounded-xl p-3 sm:p-4 md:p-5' : ''}>
+      <div className={wizardMode ? 'min-h-[440px] sm:min-h-[520px] md:min-h-[640px] space-y-5 sm:space-y-6' : 'space-y-5 sm:space-y-6'}>
       {isStepVisible(0) && (
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h2 className="text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-6 flex items-center gap-2">
-          <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">1</span>
+      <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-4 sm:mb-6 flex items-center gap-2">
+          <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">1</span>
           基本資料
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">姓名</label>
             <input
@@ -104,12 +104,12 @@ const EditMode = ({
               onChange={onChange}
               data-field-key="name"
               id="field-name"
-              className={getErrorInputClass('name', 'w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
+              className={getErrorInputClass('name', 'w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">性別</label>
-            <div className={`grid grid-cols-2 gap-3 mt-2 rounded-md p-2 ${activeErrorField === 'gender' ? 'ring-2 ring-red-500 bg-red-50' : ''}`}>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 rounded-md p-2 ${activeErrorField === 'gender' ? 'ring-2 ring-red-500 bg-red-50' : ''}`}>
               <label
                 className={`flex items-center gap-3 cursor-pointer rounded-lg border px-4 py-3 transition-colors ${
                   data.gender === '男' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 hover:border-blue-300'
@@ -148,15 +148,18 @@ const EditMode = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">出生日期</label>
             <input
-              type="date"
+              type="text"
               name="birthDate"
               value={data.birthDate}
               onChange={onChange}
-              max={adultMaxBirthDate}
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="YYYY-MM-DD"
               data-field-key="birthDate"
               id="field-birthDate"
-              className={getErrorInputClass('birthDate', 'w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
+              className={getErrorInputClass('birthDate', 'w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
             />
+            <div className="text-xs text-gray-500 mt-1">可直接輸入日期（例：1998-07-21，最晚可填 {adultMaxBirthDate}）</div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">年齡</label>
@@ -167,13 +170,13 @@ const EditMode = ({
               readOnly
               data-field-key="age"
               id="field-age"
-              className={getErrorInputClass('age', 'w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 text-gray-600 cursor-not-allowed')}
+              className={getErrorInputClass('age', 'w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-50 text-gray-600 cursor-not-allowed')}
             />
             <div className="text-xs text-gray-500 mt-1">會依出生日期自動計算</div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">婚姻狀況</label>
-            <div className={`grid grid-cols-2 gap-3 mt-2 rounded-md p-2 ${activeErrorField === 'maritalStatus' ? 'ring-2 ring-red-500 bg-red-50' : ''}`}>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 rounded-md p-2 ${activeErrorField === 'maritalStatus' ? 'ring-2 ring-red-500 bg-red-50' : ''}`}>
               <label
                 className={`flex items-center gap-3 cursor-pointer rounded-lg border px-4 py-3 transition-colors ${
                   data.maritalStatus === '未婚' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 hover:border-blue-300'
@@ -211,7 +214,7 @@ const EditMode = ({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">居留證號 (若適用)</label>
-            <input type="text" name="arcNumber" value={data.arcNumber} onChange={onChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="arcNumber" value={data.arcNumber} onChange={onChange} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話</label>
@@ -227,7 +230,7 @@ const EditMode = ({
                 inputMode="numeric"
                 maxLength={10}
                 placeholder="請輸入 10 碼數字"
-                className={getErrorInputClass('phone', 'w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
+                className={getErrorInputClass('phone', 'w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
               />
             </div>
             <div className="text-xs text-gray-500 mt-1">需為 10 碼數字</div>
@@ -236,14 +239,14 @@ const EditMode = ({
             <label className="block text-sm font-medium text-gray-700 mb-1">電子郵件</label>
             <div className="relative">
               <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-              <input type="email" name="email" value={data.email} onChange={onChange} data-field-key="email" id="field-email" className={getErrorInputClass('email', 'w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')} />
+              <input type="email" name="email" value={data.email} onChange={onChange} data-field-key="email" id="field-email" className={getErrorInputClass('email', 'w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')} />
             </div>
           </div>
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">居住地址</label>
             <div className="relative">
               <MapPin className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-              <input type="text" name="address" value={data.address} onChange={onChange} data-field-key="address" id="field-address" className={getErrorInputClass('address', 'w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')} />
+              <input type="text" name="address" value={data.address} onChange={onChange} data-field-key="address" id="field-address" className={getErrorInputClass('address', 'w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')} />
             </div>
           </div>
           <div className="md:col-span-2">
@@ -282,14 +285,14 @@ const EditMode = ({
       )}
 
       {isStepVisible(1) && (
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-6">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">2</span>
+      <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center border-b border-gray-200 pb-3 mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
+            <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">2</span>
             教育背景
           </h2>
           {data.education.length < 4 && (
-            <button onClick={onAddEducation} className="text-sm text-blue-600 flex items-center gap-1 hover:text-blue-700 font-medium bg-blue-50 px-3 py-1.5 rounded-md">
+            <button onClick={onAddEducation} className="w-full sm:w-auto justify-center text-sm text-blue-600 inline-flex items-center gap-1 hover:text-blue-700 font-medium bg-blue-50 px-3 py-2 rounded-md">
               <Plus className="w-4 h-4" /> 新增教育背景
             </button>
           )}
@@ -298,7 +301,7 @@ const EditMode = ({
           {data.education.map((educationItem, index) => (
             <div key={`education-${index}`} className="p-4 border border-gray-100 bg-gray-50 rounded-lg relative">
               <div className="mb-3 text-sm font-semibold text-gray-600">第 {index + 1} 筆教育背景</div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">學校名稱</label>
                   <input
@@ -307,7 +310,7 @@ const EditMode = ({
                     onChange={(event) => onEducationChange(index, 'school', event.target.value)}
                     data-field-key={`education.${index}.school`}
                     id={`field-education-${index}-school`}
-                    className={getErrorInputClass(`education.${index}.school`, 'w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
+                    className={getErrorInputClass(`education.${index}.school`, 'w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
                   />
                 </div>
                 <div>
@@ -318,23 +321,27 @@ const EditMode = ({
                     onChange={(event) => onEducationChange(index, 'major', event.target.value)}
                     data-field-key={`education.${index}.major`}
                     id={`field-education-${index}-major`}
-                    className={getErrorInputClass(`education.${index}.major`, 'w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
+                    className={getErrorInputClass(`education.${index}.major`, 'w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">畢業日期</label>
                   <input
-                    type="month"
+                    type="text"
                     value={educationItem.gradDate}
                     onChange={(event) => onEducationChange(index, 'gradDate', event.target.value)}
+                    inputMode="numeric"
+                    maxLength={7}
+                    placeholder="YYYY-MM"
                     data-field-key={`education.${index}.gradDate`}
                     id={`field-education-${index}-gradDate`}
-                    className={getErrorInputClass(`education.${index}.gradDate`, 'w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
+                    className={getErrorInputClass(`education.${index}.gradDate`, 'w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
                   />
+                  <div className="text-xs text-gray-500 mt-1">格式：YYYY-MM（例：2020-06）</div>
                 </div>
               </div>
               {data.education.length > 1 && (
-                <button onClick={() => onRemoveEducation(index)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 p-1.5 rounded-full hover:bg-red-200 transition-colors shadow-sm">
+                <button onClick={() => onRemoveEducation(index)} className="absolute top-2 right-2 bg-red-100 text-red-600 p-2 rounded-full hover:bg-red-200 transition-colors shadow-sm">
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
@@ -348,14 +355,14 @@ const EditMode = ({
       )}
 
       {isStepVisible(1) && (
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-6">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">2</span>
+      <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center border-b border-gray-200 pb-3 mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
+            <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">2</span>
             工作經驗 <span className="text-sm font-normal text-gray-500">(兼職或實習經驗可)</span>
           </h2>
           {data.experience.length < 4 && (
-            <button onClick={onAddExperience} className="text-sm text-blue-600 flex items-center gap-1 hover:text-blue-700 font-medium bg-blue-50 px-3 py-1.5 rounded-md">
+            <button onClick={onAddExperience} className="w-full sm:w-auto justify-center text-sm text-blue-600 inline-flex items-center gap-1 hover:text-blue-700 font-medium bg-blue-50 px-3 py-2 rounded-md">
               <Plus className="w-4 h-4" /> 新增經驗
             </button>
           )}
@@ -365,18 +372,18 @@ const EditMode = ({
             <div key={index} className="flex flex-col md:flex-row gap-4 p-4 border border-gray-100 bg-gray-50 rounded-lg relative">
               <div className="flex-1">
                 <label className="block text-xs font-medium text-gray-500 mb-1">公司名稱</label>
-                <input type="text" value={exp.company} onChange={(e) => onExperienceChange(index, 'company', e.target.value)} className="w-full px-3 py-2 rounded-md border border-gray-300 focus:ring-1 focus:ring-blue-500" />
+                <input type="text" value={exp.company} onChange={(e) => onExperienceChange(index, 'company', e.target.value)} className="w-full px-3 py-2.5 rounded-md border border-gray-300 focus:ring-1 focus:ring-blue-500" />
               </div>
               <div className="flex-1">
                 <label className="block text-xs font-medium text-gray-500 mb-1">職稱</label>
-                <input type="text" value={exp.title} onChange={(e) => onExperienceChange(index, 'title', e.target.value)} className="w-full px-3 py-2 rounded-md border border-gray-300 focus:ring-1 focus:ring-blue-500" />
+                <input type="text" value={exp.title} onChange={(e) => onExperienceChange(index, 'title', e.target.value)} className="w-full px-3 py-2.5 rounded-md border border-gray-300 focus:ring-1 focus:ring-blue-500" />
               </div>
               <div className="flex-1">
                 <label className="block text-xs font-medium text-gray-500 mb-1">工作時間 (起訖)</label>
-                <input type="text" value={exp.period} onChange={(e) => onExperienceChange(index, 'period', e.target.value)} className="w-full px-3 py-2 rounded-md border border-gray-300 focus:ring-1 focus:ring-blue-500" />
+                <input type="text" value={exp.period} onChange={(e) => onExperienceChange(index, 'period', e.target.value)} className="w-full px-3 py-2.5 rounded-md border border-gray-300 focus:ring-1 focus:ring-blue-500" />
               </div>
               {data.experience.length > 1 && (
-                <button onClick={() => onRemoveExperience(index)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 p-1.5 rounded-full hover:bg-red-200 transition-colors shadow-sm">
+                <button onClick={() => onRemoveExperience(index)} className="absolute top-2 right-2 bg-red-100 text-red-600 p-2 rounded-full hover:bg-red-200 transition-colors shadow-sm">
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
@@ -387,16 +394,16 @@ const EditMode = ({
       )}
 
       {isStepVisible(2) && (
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h2 className="text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-6 flex items-center gap-2">
-          <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">3</span>
+      <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-4 sm:mb-6 flex items-center gap-2">
+          <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">3</span>
           專長與求職條件
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
           <div><CheckboxGroup {...checkboxGroupSharedProps} label="語言能力" category="languages" options={langOptions} otherField="otherLanguage" /></div>
           <div>
             <label className="block text-gray-700 font-semibold mb-2">證照 (如: 中文華測 B1 等)</label>
-            <input type="text" name="certificates" value={data.certificates} onChange={onChange} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500" />
+            <input type="text" name="certificates" value={data.certificates} onChange={onChange} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500" />
           </div>
           <div className="md:col-span-2"><CheckboxGroup {...checkboxGroupSharedProps} label="交通工具" category="transportation" options={transOptions} otherField="otherTransport" /></div>
           <div className="md:col-span-2 bg-blue-50 p-4 rounded-lg border border-blue-100">
@@ -405,7 +412,7 @@ const EditMode = ({
             <CheckboxGroup {...checkboxGroupSharedProps} label="可以接受工作時間（可複選）" category="workHours" options={timeOptions} />
             <div className="mt-4">
               <label className="block text-gray-700 font-semibold mb-2">希望待遇</label>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <span className="text-gray-500 font-medium">NT$</span>
                 <input
                   type="text"
@@ -414,7 +421,7 @@ const EditMode = ({
                   onChange={onChange}
                   data-field-key="salary"
                   id="field-salary"
-                  className={getErrorInputClass('salary', 'w-48 px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500')}
+                  className={getErrorInputClass('salary', 'w-full sm:w-52 px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500')}
                 />
               </div>
             </div>
@@ -426,12 +433,13 @@ const EditMode = ({
       </div>
 
       {wizardMode ? (
-        <div className="flex items-center justify-between pt-2 min-h-[64px]">
+        <div className="sticky bottom-0 z-10 -mx-1 mt-2 border-t border-gray-200 bg-white/95 px-1 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] backdrop-blur sm:static sm:mx-0 sm:mt-0 sm:border-0 sm:bg-transparent sm:p-0">
+          <div className="flex items-center justify-between gap-2 min-h-[64px]">
           <button
             type="button"
             onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
             disabled={currentStep === 0}
-            className={`px-5 py-2.5 rounded-lg font-medium border ${
+            className={`px-4 sm:px-5 py-2.5 rounded-lg font-medium border flex-1 sm:flex-none ${
               currentStep === 0
                 ? 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50'
                 : 'border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -443,7 +451,7 @@ const EditMode = ({
             <button
               type="button"
               onClick={() => setCurrentStep((prev) => Math.min(totalSteps - 1, prev + 1))}
-              className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700"
+              className="bg-blue-600 text-white px-4 sm:px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 flex-1 sm:flex-none"
             >
               下一步
             </button>
@@ -451,18 +459,19 @@ const EditMode = ({
             showPreviewAction && (
               <button
                 onClick={onPreview}
-                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-blue-700 shadow-md flex items-center gap-2"
+                className="bg-blue-600 text-white w-full sm:w-auto justify-center px-5 sm:px-8 py-3 rounded-lg font-bold text-base sm:text-lg hover:bg-blue-700 shadow-md inline-flex items-center gap-2"
               >
                 完成填寫，前往匯出 / 預覽 <FileText className="w-5 h-5" />
               </button>
             )
           )}
+          </div>
         </div>
       ) : showPreviewAction && (
-        <div className="flex justify-end pt-4">
+        <div className="pt-4">
           <button
             onClick={onPreview}
-            className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-blue-700 shadow-md flex items-center gap-2"
+            className="bg-blue-600 text-white w-full sm:w-auto sm:ml-auto justify-center px-5 sm:px-8 py-3 rounded-lg font-bold text-base sm:text-lg hover:bg-blue-700 shadow-md inline-flex items-center gap-2"
           >
             完成填寫，前往匯出 / 預覽 <FileText className="w-5 h-5" />
           </button>

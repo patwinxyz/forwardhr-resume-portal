@@ -45,6 +45,25 @@ import {
 } from './modules/resumeCore';
 
 const getTodayDateText = () => new Date().toISOString().split('T')[0];
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_MONTH_PATTERN = /^\d{4}-\d{2}$/;
+
+const formatIsoDateInput = (rawValue) => {
+  const digits = String(rawValue || '')
+    .replace(/\D/g, '')
+    .slice(0, 8);
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+};
+
+const formatIsoMonthInput = (rawValue) => {
+  const digits = String(rawValue || '')
+    .replace(/\D/g, '')
+    .slice(0, 6);
+  if (digits.length <= 4) return digits;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}`;
+};
 
 const normalizeResumeData = (source) => {
   const raw = source && typeof source === 'object' ? source : {};
@@ -67,7 +86,15 @@ const normalizeResumeData = (source) => {
     fillDate: typeof raw.fillDate === 'string' && raw.fillDate ? raw.fillDate : getTodayDateText(),
   };
 
-  if (data.birthDate) {
+  data.birthDate = formatIsoDateInput(data.birthDate);
+  data.education = Array.isArray(data.education)
+    ? data.education.map((edu) => ({
+        ...edu,
+        gradDate: formatIsoMonthInput(edu?.gradDate || ''),
+      }))
+    : [{ school: '', major: '', gradDate: '' }];
+
+  if (ISO_DATE_PATTERN.test(data.birthDate)) {
     const autoAge = calculateAgeFromBirthDate(data.birthDate);
     data.age = autoAge || String(data.age || '');
   } else {
@@ -685,7 +712,10 @@ const ResumeBuilder = () => {
     if (!hasValue(data.name)) pushError('name', '姓名');
     if (!hasValue(data.gender)) pushError('gender', '性別');
     if (!hasValue(data.birthDate)) pushError('birthDate', '出生日期');
-    if (hasValue(data.birthDate) && data.birthDate > adultMaxBirthDate) {
+    const hasValidBirthDateFormat = ISO_DATE_PATTERN.test(String(data.birthDate || ''));
+    if (hasValue(data.birthDate) && !hasValidBirthDateFormat) {
+      pushError('birthDate', '出生日期格式需為 YYYY-MM-DD');
+    } else if (hasValidBirthDateFormat && data.birthDate > adultMaxBirthDate) {
       pushError('birthDate', '出生日期不符合規定');
     }
     if (!hasValue(data.age)) {
@@ -710,6 +740,9 @@ const ResumeBuilder = () => {
     if (!hasValue(firstEducation.school)) pushError('education.0.school', '學校名稱');
     if (!hasValue(firstEducation.major)) pushError('education.0.major', '就讀科系');
     if (!hasValue(firstEducation.gradDate)) pushError('education.0.gradDate', '畢業日期');
+    if (hasValue(firstEducation.gradDate) && !ISO_MONTH_PATTERN.test(String(firstEducation.gradDate || ''))) {
+      pushError('education.0.gradDate', '畢業日期格式需為 YYYY-MM');
+    }
     for (let index = 1; index < educationList.length; index += 1) {
       const edu = educationList[index];
       const hasAnyEducationValue = hasValue(edu?.school) || hasValue(edu?.major) || hasValue(edu?.gradDate);
@@ -718,6 +751,9 @@ const ResumeBuilder = () => {
       if (!hasValue(edu.school)) pushError(`education.${index}.school`, `第 ${index + 1} 筆教育背景：學校名稱`);
       if (!hasValue(edu.major)) pushError(`education.${index}.major`, `第 ${index + 1} 筆教育背景：就讀科系`);
       if (!hasValue(edu.gradDate)) pushError(`education.${index}.gradDate`, `第 ${index + 1} 筆教育背景：畢業日期`);
+      if (hasValue(edu.gradDate) && !ISO_MONTH_PATTERN.test(String(edu.gradDate || ''))) {
+        pushError(`education.${index}.gradDate`, `第 ${index + 1} 筆教育背景：畢業日期格式需為 YYYY-MM`);
+      }
     }
     if (data.languages.length === 0) pushError('languages', '語言能力（至少勾選一項）');
     if (data.transportation.length === 0) pushError('transportation', '交通工具（至少勾選一項）');
@@ -776,10 +812,11 @@ const ResumeBuilder = () => {
       return;
     }
     if (name === 'birthDate') {
+      const normalizedBirthDate = formatIsoDateInput(value);
       setData((prev) => ({
         ...prev,
-        birthDate: value,
-        age: calculateAgeFromBirthDate(value),
+        birthDate: normalizedBirthDate,
+        age: ISO_DATE_PATTERN.test(normalizedBirthDate) ? calculateAgeFromBirthDate(normalizedBirthDate) : '',
       }));
       return;
     }
@@ -823,9 +860,10 @@ const ResumeBuilder = () => {
 
   const handleEducationChange = (index, field, value) => {
     clearValidationErrors();
+    const normalizedValue = field === 'gradDate' ? formatIsoMonthInput(value) : value;
     setData((prev) => {
       const newEducation = [...prev.education];
-      newEducation[index] = { ...newEducation[index], [field]: value };
+      newEducation[index] = { ...newEducation[index], [field]: normalizedValue };
       return { ...prev, education: newEducation };
     });
   };
@@ -1477,7 +1515,7 @@ const ResumeBuilder = () => {
       />
       <NoticeBanner notice={notice} />
 
-      <div className="max-w-5xl mx-auto mt-8 px-4">
+      <div className="max-w-5xl mx-auto mt-4 sm:mt-8 px-3 sm:px-4">
         {isAdminRoute ? (
           isAdminAuditRoute ? (
             <AdminAuditLogPage
@@ -1640,4 +1678,3 @@ const ResumeBuilder = () => {
   );
 };
 export default ResumeBuilder;
-

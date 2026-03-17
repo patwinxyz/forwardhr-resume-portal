@@ -28,3 +28,16 @@ body {
 .notice-toast {
   animation: notice-slide-in 220ms ease-out;
 }
+
+@media (max-width: 768px) {
+  .resume-edit-form input:not([type='checkbox']):not([type='radio']),
+  .resume-edit-form select,
+  .resume-edit-form textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .resume-edit-form button {
+    min-height: 44px;
+  }
+}

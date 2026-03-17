@@ -28,6 +28,15 @@ export default async function handler(req, res) {
     });
   }
 
+  let body = req.body || {};
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch (error) {
+      return res.status(400).json({ ok: false, message: 'Invalid JSON body' });
+    }
+  }
+
   const {
     attachmentBase64,
     attachmentFilename,
@@ -38,7 +47,7 @@ export default async function handler(req, res) {
     submitterEmail,
     submitterName,
     fillDate,
-  } = req.body || {};
+  } = body;
 
   if (!attachmentBase64) {
     return res.status(400).json({ ok: false, message: 'Missing attachmentBase64' });
@@ -94,7 +103,7 @@ export default async function handler(req, res) {
   ].join('\n');
 
   try {
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: fromEmail,
       to: toEmails,
       subject,
@@ -104,15 +113,19 @@ export default async function handler(req, res) {
       attachments: [
         {
           filename: sanitize(attachmentFilename) || 'resume.docx',
-          content: attachmentBuffer,
+          content: attachmentBuffer.toString('base64'),
           contentType: sanitize(attachmentMimeType) || 'application/octet-stream',
         },
       ],
     });
 
-    return res.status(200).json({ ok: true });
+    if (error) {
+      return res.status(502).json({ ok: false, message: error.message || 'Email provider rejected request' });
+    }
+
+    return res.status(200).json({ ok: true, id: data?.id || '' });
   } catch (error) {
     console.error('Failed to send email:', error);
-    return res.status(500).json({ ok: false, message: 'Failed to send email' });
+    return res.status(500).json({ ok: false, message: error?.message || 'Failed to send email' });
   }
 }

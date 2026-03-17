@@ -660,15 +660,23 @@ const ResumeBuilder = () => {
         }),
       });
 
-      const result = await response.json().catch(() => ({}));
+      const rawText = await response.text();
+      let result = {};
+      try {
+        result = rawText ? JSON.parse(rawText) : {};
+      } catch (parseError) {
+        result = { message: rawText?.slice(0, 140) || '' };
+      }
       if (!response.ok || !result?.ok) {
-        throw new Error(result?.message || '寄送失敗');
+        const detailMessage = result?.message || `寄送 API 錯誤（${response.status}）`;
+        throw new Error(detailMessage);
       }
 
       showNotice('已成功送出，Word 附件已寄到指定信箱。', 'info');
     } catch (error) {
       console.error('Send email failed:', error);
-      showNotice('送出寄送失敗，請稍後重試。', 'error');
+      const errorMessage = error instanceof Error ? error.message : '請稍後重試。';
+      showNotice(`送出寄送失敗：${errorMessage}`, 'error');
     } finally {
       setIsSendingEmail(false);
     }

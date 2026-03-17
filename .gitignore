@@ -16,6 +16,7 @@ dist
 *.cer
 *.crt
 *.jks
+*firebase-adminsdk*.json
 
 # Personal or sensitive data files
 *.doc

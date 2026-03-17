@@ -5,7 +5,6 @@ import {
   jobOptions,
   langOptions,
   locOptions,
-  MIN_AGE,
   PHOTO_SIZE_CM,
   timeOptions,
   transOptions,
@@ -104,7 +103,6 @@ const EditMode = ({
               id="field-birthDate"
               className={getErrorInputClass('birthDate', 'w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
             />
-            <div className="text-xs text-gray-500 mt-1">需年滿 {MIN_AGE} 歲</div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">年齡</label>

@@ -142,7 +142,7 @@ const ResumeBuilder = () => {
     if (!hasValue(data.gender)) pushError('gender', '性別');
     if (!hasValue(data.birthDate)) pushError('birthDate', '出生日期');
     if (hasValue(data.birthDate) && data.birthDate > adultMaxBirthDate) {
-      pushError('birthDate', `需年滿 ${MIN_AGE} 歲`);
+      pushError('birthDate', '出生日期不符合規定');
     }
     if (!hasValue(data.age)) {
       pushError('birthDate', '年齡');

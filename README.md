@@ -58,6 +58,16 @@ npm run dev
 - `VITE_FIREBASE_PROJECT_ID`
 - `VITE_FIREBASE_APP_ID`
 
+## Firebase Admin 設定（後端驗證登入 Token）
+
+`/api/send-resume` 會在後端驗證 Firebase ID token，避免未登入者濫用寄信 API。
+
+1. Firebase Console -> Project settings -> Service accounts
+2. 產生新的 private key（下載 JSON）
+3. 在 Vercel Environment Variables 使用下列任一方式：
+- 方式 A（推薦）：`FIREBASE_SERVICE_ACCOUNT_JSON`（整份 JSON 壓成單行字串）
+- 方式 B：`FIREBASE_PROJECT_ID`、`FIREBASE_CLIENT_EMAIL`、`FIREBASE_PRIVATE_KEY`
+
 ## Resend 設定（寄送履歷）
 
 1. 到 Resend 建立 API Key
@@ -76,6 +86,10 @@ npm run dev
 - `RESEND_API_KEY`
 - `MAIL_FROM`
 - `MAIL_TO`
+- `FIREBASE_SERVICE_ACCOUNT_JSON`（或改用分拆三個變數）
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
 - （選填）`VITE_API_BASE_URL`
 4. 重新部署
 

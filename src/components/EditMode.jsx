@@ -68,8 +68,12 @@ const EditMode = ({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">性別</label>
-            <div className={`flex gap-6 mt-2 rounded-md p-2 ${activeErrorField === 'gender' ? 'ring-2 ring-red-500 bg-red-50' : ''}`}>
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div className={`grid grid-cols-2 gap-3 mt-2 rounded-md p-2 ${activeErrorField === 'gender' ? 'ring-2 ring-red-500 bg-red-50' : ''}`}>
+              <label
+                className={`flex items-center gap-3 cursor-pointer rounded-lg border px-4 py-3 transition-colors ${
+                  data.gender === '男' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 hover:border-blue-300'
+                }`}
+              >
                 <input
                   type="radio"
                   name="gender"
@@ -78,10 +82,15 @@ const EditMode = ({
                   onChange={onChange}
                   data-field-key="gender"
                   id="field-gender"
-                  className="text-blue-600 focus:ring-blue-500 w-4 h-4"
-                /> 男
+                  className="text-blue-600 focus:ring-blue-500 w-5 h-5"
+                />
+                <span className="font-medium">男</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label
+                className={`flex items-center gap-3 cursor-pointer rounded-lg border px-4 py-3 transition-colors ${
+                  data.gender === '女' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 hover:border-blue-300'
+                }`}
+              >
                 <input
                   type="radio"
                   name="gender"
@@ -89,8 +98,9 @@ const EditMode = ({
                   checked={data.gender === '女'}
                   onChange={onChange}
                   data-field-key="gender"
-                  className="text-blue-600 focus:ring-blue-500 w-4 h-4"
-                /> 女
+                  className="text-blue-600 focus:ring-blue-500 w-5 h-5"
+                />
+                <span className="font-medium">女</span>
               </label>
             </div>
           </div>
@@ -122,9 +132,40 @@ const EditMode = ({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">婚姻狀況</label>
-            <div className={`flex gap-6 mt-2 rounded-md p-2 ${activeErrorField === 'maritalStatus' ? 'ring-2 ring-red-500 bg-red-50' : ''}`}>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="maritalStatus" value="未婚" checked={data.maritalStatus === '未婚'} onChange={onChange} data-field-key="maritalStatus" id="field-maritalStatus" className="text-blue-600 focus:ring-blue-500 w-4 h-4" /> 未婚</label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="maritalStatus" value="已婚" checked={data.maritalStatus === '已婚'} onChange={onChange} data-field-key="maritalStatus" className="text-blue-600 focus:ring-blue-500 w-4 h-4" /> 已婚</label>
+            <div className={`grid grid-cols-2 gap-3 mt-2 rounded-md p-2 ${activeErrorField === 'maritalStatus' ? 'ring-2 ring-red-500 bg-red-50' : ''}`}>
+              <label
+                className={`flex items-center gap-3 cursor-pointer rounded-lg border px-4 py-3 transition-colors ${
+                  data.maritalStatus === '未婚' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 hover:border-blue-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="maritalStatus"
+                  value="未婚"
+                  checked={data.maritalStatus === '未婚'}
+                  onChange={onChange}
+                  data-field-key="maritalStatus"
+                  id="field-maritalStatus"
+                  className="text-blue-600 focus:ring-blue-500 w-5 h-5"
+                />
+                <span className="font-medium">未婚</span>
+              </label>
+              <label
+                className={`flex items-center gap-3 cursor-pointer rounded-lg border px-4 py-3 transition-colors ${
+                  data.maritalStatus === '已婚' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 hover:border-blue-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="maritalStatus"
+                  value="已婚"
+                  checked={data.maritalStatus === '已婚'}
+                  onChange={onChange}
+                  data-field-key="maritalStatus"
+                  className="text-blue-600 focus:ring-blue-500 w-5 h-5"
+                />
+                <span className="font-medium">已婚</span>
+              </label>
             </div>
           </div>
           <div>

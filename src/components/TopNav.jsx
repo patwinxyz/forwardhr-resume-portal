@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, FileText, FolderOpen, Loader2, LogIn, LogOut, PlusCircle, Printer, RefreshCw, Send } from 'lucide-react';
+import { Download, FileText, FolderOpen, Loader2, LogIn, LogOut, PlusCircle, Printer, RefreshCw } from 'lucide-react';
 
 const TopNav = ({
   isAdmin,
@@ -10,8 +10,6 @@ const TopNav = ({
   onPrint,
   canExport,
   isExportingWord,
-  onSendEmail,
-  isSendingEmail,
   isLoadingDrafts,
   authUser,
   isAuthBusy,
@@ -108,15 +106,6 @@ const TopNav = ({
               }`}
             >
               {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderOpen className="w-4 h-4" />} 載入歷史履歷
-            </button>
-            <button
-              onClick={onSendEmail}
-              disabled={isSendingEmail}
-              className={`flex items-center gap-1 px-3 py-2 text-white rounded-md font-medium shadow-sm transition-colors ${
-                isSendingEmail ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
-              }`}
-            >
-              <Send className="w-4 h-4" /> {isSendingEmail ? '送出中...' : '送出寄送'}
             </button>
           </>
         )}

@@ -48,7 +48,7 @@ copy .env.example .env
 
 管理員白名單設定（前端）：
 - `VITE_ADMIN_EMAILS`：以逗號分隔管理員 email，例如：
-  - `VITE_ADMIN_EMAILS=patwinxyz@gmail.com,admin@forwardhrm.com.tw`
+  - `VITE_ADMIN_EMAILS=patwinxyz@gmail.com,admin@forwardhrm.com`
 - 白名單登入後會進入「管理員 CRUD 模式」。
 
 管理員白名單設定（後端）：
@@ -88,8 +88,12 @@ npm run dev
 ## Resend 設定（寄送履歷）
 
 1. 到 Resend 建立 API Key
-2. 設定寄件者（`MAIL_FROM`）
-3. 設定收件者（`MAIL_TO`，可多個用逗號）
+2. 在 Resend `Domains` 驗證 `forwardhrm.com`（建議用 Cloudflare 自動寫入 DNS）
+3. 設定寄件者（`MAIL_FROM`）
+- 可用格式 A：`no-reply@forwardhrm.com`
+- 可用格式 B：`Forward HR <no-reply@forwardhrm.com>`
+4. （選填）設定寄件名稱 `MAIL_FROM_NAME=Forward HR`（當 `MAIL_FROM` 是純 email 時會自動套用）
+5. 設定收件者（`MAIL_TO`，可多個用逗號），例如：`hr@forwardhrm.com,manager@forwardhrm.com`
 
 ## Vercel 部署
 
@@ -104,6 +108,7 @@ npm run dev
 - `ADMIN_EMAILS`（後端管理員白名單，建議與 `VITE_ADMIN_EMAILS` 相同）
 - `RESEND_API_KEY`
 - `MAIL_FROM`
+- `MAIL_FROM_NAME`（選填）
 - `MAIL_TO`
 - `FIREBASE_SERVICE_ACCOUNT_JSON`（或改用分拆三個變數）
 - `FIREBASE_PROJECT_ID`

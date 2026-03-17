@@ -1359,7 +1359,11 @@ const ResumeBuilder = () => {
         result = { message: rawText?.slice(0, 140) || '' };
       }
       if (!response.ok || !result?.ok) {
-        const detailMessage = result?.message || `寄送 API 錯誤（${response.status}）`;
+        const configDetails =
+          Array.isArray(result?.details) && result.details.length > 0
+            ? `（${result.details.join('；')}）`
+            : '';
+        const detailMessage = `${result?.message || `寄送 API 錯誤（${response.status}）`}${configDetails}`;
         throw new Error(detailMessage);
       }
       let submittedRecord = null;
@@ -1636,5 +1640,4 @@ const ResumeBuilder = () => {
   );
 };
 export default ResumeBuilder;
-
 

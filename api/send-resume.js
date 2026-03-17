@@ -1,6 +1,8 @@
 import { Resend } from 'resend';
 import { verifyFirebaseIdToken } from './_lib/firebaseAdmin.js';
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const sanitize = (value) =>
   String(value || '')
     .replace(/[<>"'`]/g, '')
@@ -11,6 +13,35 @@ const parseRecipients = (rawValue) =>
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+
+const isValidEmail = (value) => EMAIL_PATTERN.test(String(value || '').trim());
+
+const extractEmailAddress = (value) => {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  if (trimmed.includes('<')) {
+    const matched = trimmed.match(/<([^<>]+)>/);
+    return String(matched?.[1] || '').trim();
+  }
+  return trimmed;
+};
+
+const buildFromAddress = (mailFrom, mailFromName) => {
+  const rawFrom = String(mailFrom || '').trim();
+  const rawName = sanitize(mailFromName);
+  if (!rawFrom) return { value: '', error: 'MAIL_FROM is missing' };
+
+  const extractedEmail = extractEmailAddress(rawFrom);
+  if (!isValidEmail(extractedEmail)) {
+    return { value: '', error: 'MAIL_FROM must be a valid sender email (or "Name <email>")' };
+  }
+
+  if (rawFrom.includes('<') || !rawName) {
+    return { value: rawFrom, error: '' };
+  }
+
+  return { value: `${rawName} <${extractedEmail}>`, error: '' };
+};
 
 const getBearerToken = (req) => {
   const authHeader = req.headers?.authorization || req.headers?.Authorization || '';
@@ -41,14 +72,24 @@ export default async function handler(req, res) {
     return res.status(401).json({ ok: false, message: 'Invalid Firebase ID token' });
   }
 
-  const apiKey = process.env.RESEND_API_KEY || '';
-  const fromEmail = process.env.MAIL_FROM || '';
-  const toEmails = parseRecipients(process.env.MAIL_TO);
+  const apiKey = String(process.env.RESEND_API_KEY || '').trim();
+  const { value: fromEmail, error: fromEmailError } = buildFromAddress(process.env.MAIL_FROM, process.env.MAIL_FROM_NAME);
+  const recipientCandidates = parseRecipients(process.env.MAIL_TO);
+  const toEmails = recipientCandidates.filter((item) => isValidEmail(item));
+  const invalidToEmails = recipientCandidates.filter((item) => !isValidEmail(item));
+  const configErrors = [];
 
-  if (!apiKey || !fromEmail || toEmails.length === 0) {
+  if (!apiKey) configErrors.push('RESEND_API_KEY is missing');
+  if (fromEmailError) configErrors.push(fromEmailError);
+  if (toEmails.length === 0) configErrors.push('MAIL_TO is missing');
+  if (invalidToEmails.length > 0) configErrors.push(`MAIL_TO has invalid email(s): ${invalidToEmails.join(', ')}`);
+
+  if (configErrors.length > 0) {
     return res.status(500).json({
       ok: false,
-      message: 'Server email settings are missing. Please set RESEND_API_KEY, MAIL_FROM, MAIL_TO.',
+      message:
+        'Server email settings are missing or invalid. Please set RESEND_API_KEY, MAIL_FROM, MAIL_TO (optional MAIL_FROM_NAME).',
+      details: configErrors,
     });
   }
 

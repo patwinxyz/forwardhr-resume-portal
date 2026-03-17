@@ -17,6 +17,8 @@ import {
 import {
   initialData,
   MAX_PHOTO_SIZE_BYTES,
+  MAX_PHOTO_DATAURL_BYTES,
+  PHOTO_MAX_DIMENSION_PX,
   langOptions,
   transOptions,
   locOptions,
@@ -101,6 +103,95 @@ const parseAdminEmails = () =>
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean);
 
+const getUpdatedTimeValue = (value) => {
+  const parsed = Date.parse(String(value || ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const sortRecordsByNewest = (records = []) =>
+  [...records].sort((a, b) => getUpdatedTimeValue(b?.updatedAt) - getUpdatedTimeValue(a?.updatedAt));
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(new Error('讀取圖片失敗'));
+    reader.readAsDataURL(file);
+  });
+
+const loadImage = (source) =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('圖片解析失敗'));
+    image.src = source;
+  });
+
+const getDataUrlBytes = (dataUrl) => {
+  const base64Data = String(dataUrl || '').split(',')[1] || '';
+  if (!base64Data) return 0;
+  const paddingLength = (base64Data.match(/=+$/) || [''])[0].length;
+  return Math.floor((base64Data.length * 3) / 4) - paddingLength;
+};
+
+const convertImageToUploadDataUrl = async (file) => {
+  const sourceDataUrl = await readFileAsDataUrl(file);
+  if (!sourceDataUrl) {
+    throw new Error('照片內容為空');
+  }
+
+  const image = await loadImage(sourceDataUrl);
+  const sourceWidth = image.naturalWidth || image.width || 1;
+  const sourceHeight = image.naturalHeight || image.height || 1;
+  const longEdge = Math.max(sourceWidth, sourceHeight);
+  const scale = longEdge > PHOTO_MAX_DIMENSION_PX ? PHOTO_MAX_DIMENSION_PX / longEdge : 1;
+  const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+  const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new Error('瀏覽器不支援圖片處理，請更換瀏覽器');
+  }
+
+  const qualities = [0.86, 0.78, 0.7, 0.62, 0.54, 0.46, 0.38];
+  const MIN_LONG_EDGE_PX = 480;
+  let workingWidth = targetWidth;
+  let workingHeight = targetHeight;
+  let latestDataUrl = '';
+
+  while (true) {
+    canvas.width = workingWidth;
+    canvas.height = workingHeight;
+
+    // JPEG 不支援透明，先鋪白底可避免透明區塊變黑。
+    context.fillStyle = '#FFFFFF';
+    context.fillRect(0, 0, workingWidth, workingHeight);
+    context.drawImage(image, 0, 0, workingWidth, workingHeight);
+
+    for (const quality of qualities) {
+      const candidate = canvas.toDataURL('image/jpeg', quality);
+      latestDataUrl = candidate;
+      if (getDataUrlBytes(candidate) <= MAX_PHOTO_DATAURL_BYTES) {
+        return candidate;
+      }
+    }
+
+    const longEdgeNow = Math.max(workingWidth, workingHeight);
+    if (longEdgeNow <= MIN_LONG_EDGE_PX) {
+      break;
+    }
+
+    workingWidth = Math.max(1, Math.round(workingWidth * 0.85));
+    workingHeight = Math.max(1, Math.round(workingHeight * 0.85));
+  }
+
+  if (latestDataUrl && getDataUrlBytes(latestDataUrl) <= MAX_PHOTO_DATAURL_BYTES) {
+    return latestDataUrl;
+  }
+  throw new Error('照片處理後仍超過 300KB，請改用更小的照片');
+};
+
 const ResumeBuilder = () => {
   const isAdminRoute =
     typeof window !== 'undefined' && /^\/admin(?:\/|$)/i.test(window.location.pathname || '');
@@ -148,6 +239,12 @@ const ResumeBuilder = () => {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!authReady || !authUser || !isAdmin || isAdminRoute) return;
+    if (typeof window === 'undefined') return;
+    window.location.replace('/admin');
+  }, [authReady, authUser, isAdmin, isAdminRoute]);
 
   const handleLogin = async () => {
     if (!isFirebaseAuthConfigured()) {
@@ -213,7 +310,7 @@ const ResumeBuilder = () => {
     if (!response.ok || !result?.ok) {
       throw new Error(result?.message || `草稿查詢失敗（${response.status}）`);
     }
-    return Array.isArray(result.records) ? result.records : [];
+    return sortRecordsByNewest(Array.isArray(result.records) ? result.records : []);
   };
 
   const loadRecords = async (filters = {}, { openModal = false } = {}) => {
@@ -225,7 +322,7 @@ const ResumeBuilder = () => {
     setIsLoadingDrafts(true);
     try {
       const records = await fetchDraftRecords(filters);
-      setDraftRecords(records);
+      setDraftRecords(sortRecordsByNewest(records));
       if (openModal) {
         setIsDraftManagerOpen(true);
       }
@@ -290,7 +387,7 @@ const ResumeBuilder = () => {
       } else {
         setDraftRecords((prev) => {
           const merged = [savedRecord, ...prev.filter((item) => item.id !== savedRecord.id)];
-          return merged.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+          return sortRecordsByNewest(merged);
         });
       }
       if (showSuccessNotice) {
@@ -525,28 +622,34 @@ const ResumeBuilder = () => {
   };
 
   const handlePhotoUpload = (event) => {
-    const file = event.target.files?.[0];
+    const inputElement = event.target;
+    const file = inputElement.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
       showNotice('請上傳圖片檔（JPG、PNG、WEBP）。', 'error');
-      event.target.value = '';
+      inputElement.value = '';
       return;
     }
 
     if (file.size > MAX_PHOTO_SIZE_BYTES) {
       showNotice('照片檔案過大，請上傳 5MB 以下圖片。', 'error');
-      event.target.value = '';
+      inputElement.value = '';
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
-      clearValidationErrors();
-      setData((prev) => ({ ...prev, photoDataUrl: dataUrl }));
-    };
-    reader.readAsDataURL(file);
+    void (async () => {
+      try {
+        const dataUrl = await convertImageToUploadDataUrl(file);
+        clearValidationErrors();
+        setData((prev) => ({ ...prev, photoDataUrl: dataUrl }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '照片處理失敗';
+        showNotice(message, 'error');
+      } finally {
+        inputElement.value = '';
+      }
+    })();
   };
 
   const clearPhoto = () => {
@@ -618,6 +721,10 @@ const ResumeBuilder = () => {
   const printDocument = () => {
     if (!isAdmin) {
       showNotice('僅管理員可使用列印功能。', 'error');
+      return;
+    }
+    if (isAdminRoute && !currentDraftId) {
+      showNotice('請先在列表點「編輯」載入履歷，再列印或匯出 PDF。', 'error');
       return;
     }
     if (!ensureValidBeforeAction('列印')) return;
@@ -875,6 +982,10 @@ const ResumeBuilder = () => {
       showNotice('僅管理員可使用 Word 匯出功能。', 'error');
       return;
     }
+    if (isAdminRoute && !currentDraftId) {
+      showNotice('請先在列表點「編輯」載入履歷，再匯出 Word。', 'error');
+      return;
+    }
     if (isExportingWord) return;
     if (!ensureValidBeforeAction('匯出 Word')) return;
 
@@ -1066,6 +1177,10 @@ const ResumeBuilder = () => {
         isAdminRoute={isAdminRoute}
         onNewDraft={createNewDraft}
         onLoadDrafts={openDraftManager}
+        onExportWord={exportToWord}
+        onPrint={printDocument}
+        canExport={Boolean(currentDraftId)}
+        isExportingWord={isExportingWord}
         onSendEmail={sendResumeByEmail}
         isSendingEmail={isSendingEmail}
         isLoadingDrafts={isLoadingDrafts}
@@ -1110,11 +1225,15 @@ const ResumeBuilder = () => {
               isOpen={isAdminDrawerOpen && Boolean(currentDraftId)}
               title={data.name ? `編輯履歷：${data.name}` : '編輯履歷'}
               isSaving={isSavingDraft}
+              isExportingWord={isExportingWord}
+              canExport={Boolean(currentDraftId)}
               onClose={() => {
                 setIsAdminDrawerOpen(false);
                 setCurrentDraftId('');
               }}
               onSave={saveDraft}
+              onExportWord={exportToWord}
+              onPrint={printDocument}
             >
               <EditMode
                 data={data}

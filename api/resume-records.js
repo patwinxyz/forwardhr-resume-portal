@@ -34,6 +34,10 @@ const toSafeText = (value) =>
     .trim();
 
 const toSearchKeyword = (value) => toSafeText(value).toLowerCase();
+const toUpdatedTimestamp = (value) => {
+  const parsed = Date.parse(String(value || ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 const validateFormDataSize = (formData) => {
   const payload = JSON.stringify(formData || {});
@@ -238,7 +242,7 @@ const listRecords = async (req, res, authUser, isAdmin) => {
   const records = snapshot.docs
     .map(normalizeRecord)
     .filter((record) => matchRecordByKeywords(record, filters))
-    .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    .sort((a, b) => toUpdatedTimestamp(b.updatedAt) - toUpdatedTimestamp(a.updatedAt));
 
   return res.status(200).json({ ok: true, records });
 };

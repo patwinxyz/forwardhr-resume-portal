@@ -166,7 +166,9 @@ const EditMode = ({
           </div>
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">個人照片（選填）</label>
-            <p className="text-xs text-gray-500 mb-2">照片顯示與匯出尺寸固定為 {PHOTO_SIZE_CM} x {PHOTO_SIZE_CM}</p>
+            <p className="text-xs text-gray-500 mb-2">
+              照片顯示與匯出尺寸固定為 {PHOTO_SIZE_CM} x {PHOTO_SIZE_CM}，限 5MB 內，系統會自動壓縮至 300KB 以下再上傳。
+            </p>
             <div className="flex flex-col md:flex-row gap-4 items-start">
               <input
                 type="file"

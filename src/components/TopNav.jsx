@@ -1,11 +1,15 @@
 import React from 'react';
-import { FileText, FolderOpen, Loader2, LogIn, LogOut, PlusCircle, RefreshCw, Send } from 'lucide-react';
+import { Download, FileText, FolderOpen, Loader2, LogIn, LogOut, PlusCircle, Printer, RefreshCw, Send } from 'lucide-react';
 
 const TopNav = ({
   isAdmin,
   isAdminRoute,
   onNewDraft,
   onLoadDrafts,
+  onExportWord,
+  onPrint,
+  canExport,
+  isExportingWord,
   onSendEmail,
   isSendingEmail,
   isLoadingDrafts,
@@ -57,15 +61,37 @@ const TopNav = ({
 
       <div className="flex flex-wrap gap-2">
         {isAdmin && isAdminRoute ? (
-          <button
-            onClick={onLoadDrafts}
-            disabled={isLoadingDrafts}
-            className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
-              isLoadingDrafts ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-slate-600 text-white hover:bg-slate-700'
-            }`}
-          >
-            {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} 重新整理列表
-          </button>
+          <>
+            <button
+              onClick={onLoadDrafts}
+              disabled={isLoadingDrafts}
+              className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
+                isLoadingDrafts ? 'bg-slate-300 text-white cursor-not-allowed' : 'bg-slate-600 text-white hover:bg-slate-700'
+              }`}
+            >
+              {isLoadingDrafts ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} 重新整理列表
+            </button>
+            <button
+              onClick={onExportWord}
+              disabled={!canExport || isExportingWord}
+              className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium text-white transition-colors ${
+                !canExport || isExportingWord ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+              title={!canExport ? '請先從列表點選「編輯」載入履歷' : ''}
+            >
+              {isExportingWord ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} 匯出 Word
+            </button>
+            <button
+              onClick={onPrint}
+              disabled={!canExport}
+              className={`flex items-center gap-1 px-3 py-2 rounded-md font-medium transition-colors ${
+                !canExport ? 'bg-emerald-300 text-white cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'
+              }`}
+              title={!canExport ? '請先從列表點選「編輯」載入履歷' : ''}
+            >
+              <Printer className="w-4 h-4" /> 列印 / PDF
+            </button>
+          </>
         ) : (
           <>
             <button
@@ -100,4 +126,3 @@ const TopNav = ({
 );
 
 export default TopNav;
-

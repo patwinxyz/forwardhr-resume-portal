@@ -29,6 +29,8 @@ const initialData = {
 };
 
 const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_PHOTO_DATAURL_BYTES = 300 * 1024;
+const PHOTO_MAX_DIMENSION_PX = 1200;
 
 const langOptions = ['中文', '英文', '越文', '其他'];
 const transOptions = ['捷運', '汽車', '機車', '公車', '其他'];
@@ -613,6 +615,8 @@ const fillResumeTemplateXml = (xmlDocument, formData, options = {}) => {
 export {
   initialData,
   MAX_PHOTO_SIZE_BYTES,
+  MAX_PHOTO_DATAURL_BYTES,
+  PHOTO_MAX_DIMENSION_PX,
   langOptions,
   transOptions,
   locOptions,

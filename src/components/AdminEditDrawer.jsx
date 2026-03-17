@@ -1,7 +1,18 @@
 import React from 'react';
-import { Loader2, Save, X } from 'lucide-react';
+import { Download, Loader2, Printer, Save, X } from 'lucide-react';
 
-const AdminEditDrawer = ({ isOpen, title, isSaving, onClose, onSave, children }) => {
+const AdminEditDrawer = ({
+  isOpen,
+  title,
+  isSaving,
+  isExportingWord,
+  canExport,
+  onClose,
+  onSave,
+  onExportWord,
+  onPrint,
+  children,
+}) => {
   if (!isOpen) return null;
 
   return (
@@ -13,7 +24,25 @@ const AdminEditDrawer = ({ isOpen, title, isSaving, onClose, onSave, children })
             <h3 className="text-lg font-bold text-gray-800">{title || '編輯履歷'}</h3>
             <p className="text-xs text-gray-500 mt-1">右側抽屜編輯，儲存後會立即更新列表。</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <button
+              onClick={onExportWord}
+              disabled={!canExport || isExportingWord}
+              className={`inline-flex items-center gap-1 px-3 py-2 rounded-md font-medium text-white ${
+                !canExport || isExportingWord ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {isExportingWord ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} 匯出 Word
+            </button>
+            <button
+              onClick={onPrint}
+              disabled={!canExport}
+              className={`inline-flex items-center gap-1 px-3 py-2 rounded-md font-medium text-white ${
+                !canExport ? 'bg-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
+            >
+              <Printer className="w-4 h-4" /> 列印 / PDF
+            </button>
             <button
               onClick={onSave}
               disabled={isSaving}
@@ -39,4 +68,3 @@ const AdminEditDrawer = ({ isOpen, title, isSaving, onClose, onSave, children })
 };
 
 export default AdminEditDrawer;
-

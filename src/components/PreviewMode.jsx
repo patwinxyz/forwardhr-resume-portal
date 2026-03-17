@@ -6,7 +6,8 @@ import {
   langOptions,
   locOptions,
   LOGO_FILENAME,
-  PHOTO_SIZE_CM,
+  PHOTO_WIDTH_CM,
+  PHOTO_HEIGHT_CM,
   timeOptions,
   transOptions,
 } from '../modules/resumeCore';
@@ -50,13 +51,13 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
               </td>
               <td rowSpan="5" className="td-content">
                 {data.photoDataUrl ? (
-                  <div className="mx-auto" style={{ width: PHOTO_SIZE_CM, height: PHOTO_SIZE_CM }}>
+                  <div className="mx-auto" style={{ width: PHOTO_WIDTH_CM, height: PHOTO_HEIGHT_CM }}>
                     <img src={data.photoDataUrl} alt="個人照片" className="w-full h-full object-cover" />
                   </div>
                 ) : (
                   <div
                     className="mx-auto flex items-center justify-center text-gray-300 text-sm border border-gray-200"
-                    style={{ width: PHOTO_SIZE_CM, height: PHOTO_SIZE_CM }}
+                    style={{ width: PHOTO_WIDTH_CM, height: PHOTO_HEIGHT_CM }}
                   >
                     照片
                   </div>

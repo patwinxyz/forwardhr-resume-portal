@@ -124,7 +124,7 @@ const AdminRecordPanel = ({
             onClick={onOpenAuditLogs}
             className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
           >
-            處理紀錄
+            處理紀錄頁
           </button>
         </div>
 
@@ -330,4 +330,3 @@ const AdminRecordPanel = ({
 };
 
 export default AdminRecordPanel;
-

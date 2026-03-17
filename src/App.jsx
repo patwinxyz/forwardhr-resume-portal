@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import AdminEditDrawer from './components/AdminEditDrawer';
-import AdminAuditLogModal from './components/AdminAuditLogModal';
+import AdminAuditLogPage from './components/AdminAuditLogPage';
 import AdminRecordPanel from './components/AdminRecordPanel';
 import AdminViewModal from './components/AdminViewModal';
 import EditMode from './components/EditMode';
@@ -30,7 +30,8 @@ import {
   escapeHTMLWithBreaks,
   getExportFilename,
   WORD_TEMPLATE_FILENAME,
-  PHOTO_SIZE_CM,
+  PHOTO_WIDTH_CM,
+  PHOTO_HEIGHT_CM,
   MIN_AGE,
   getWordTemplateCandidates,
   loadJSZipModule,
@@ -194,8 +195,9 @@ const convertImageToUploadDataUrl = async (file) => {
 };
 
 const ResumeBuilder = () => {
-  const isAdminRoute =
-    typeof window !== 'undefined' && /^\/admin(?:\/|$)/i.test(window.location.pathname || '');
+  const currentPathname = typeof window !== 'undefined' ? window.location.pathname || '' : '';
+  const isAdminRoute = /^\/admin(?:\/|$)/i.test(currentPathname);
+  const isAdminAuditRoute = /^\/admin\/audit(?:\/|$)/i.test(currentPathname);
   const editSectionRef = useRef(null);
   const [data, setData] = useState(() => createBlankResumeData());
   const [validationErrors, setValidationErrors] = useState([]);
@@ -209,7 +211,6 @@ const ResumeBuilder = () => {
   const [selectedAdminRecordId, setSelectedAdminRecordId] = useState('');
   const [adminQuery, setAdminQuery] = useState('');
   const [isAdminDrawerOpen, setIsAdminDrawerOpen] = useState(false);
-  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
   const [auditLogs, setAuditLogs] = useState([]);
   const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false);
   const [statusUpdatingRecordId, setStatusUpdatingRecordId] = useState('');
@@ -291,7 +292,6 @@ const ResumeBuilder = () => {
       setCurrentDraftId('');
       setSelectedAdminRecordId('');
       setIsAdminDrawerOpen(false);
-      setIsAuditModalOpen(false);
       setAuditLogs([]);
       setStatusUpdatingRecordId('');
       setViewingRecord(null);
@@ -363,9 +363,9 @@ const ResumeBuilder = () => {
   };
 
   useEffect(() => {
-    if (!authUser || !isAdmin || !isAdminRoute) return;
+    if (!authUser || !isAdmin || !isAdminRoute || isAdminAuditRoute) return;
     void loadRecords({ q: adminQuery });
-  }, [authUser, isAdmin, isAdminRoute]);
+  }, [authUser, isAdmin, isAdminRoute, isAdminAuditRoute]);
 
   const refreshAdminRecords = async () => {
     if (!isAdmin || !isAdminRoute) return;
@@ -386,9 +386,7 @@ const ResumeBuilder = () => {
     return Array.isArray(result.logs) ? result.logs : [];
   };
 
-  const openAuditLogModal = async () => {
-    if (!isAdmin || !isAdminRoute) return;
-    setIsAuditModalOpen(true);
+  const loadAuditLogs = async () => {
     setIsLoadingAuditLogs(true);
     try {
       const logs = await fetchAuditLogs();
@@ -401,18 +399,20 @@ const ResumeBuilder = () => {
     }
   };
 
-  const refreshAuditLogModal = async () => {
-    setIsLoadingAuditLogs(true);
-    try {
-      const logs = await fetchAuditLogs();
-      setAuditLogs(logs);
-    } catch (error) {
-      console.error('Refresh audit logs failed:', error);
-      showNotice(`載入處理紀錄失敗：${error?.message || '請稍後再試。'}`, 'error');
-    } finally {
-      setIsLoadingAuditLogs(false);
-    }
+  const goToAuditLogPage = () => {
+    if (typeof window === 'undefined') return;
+    window.location.assign('/admin/audit');
   };
+
+  const goToAdminRecordsPage = () => {
+    if (typeof window === 'undefined') return;
+    window.location.assign('/admin');
+  };
+
+  useEffect(() => {
+    if (!authUser || !isAdmin || !isAdminRoute || !isAdminAuditRoute) return;
+    void loadAuditLogs();
+  }, [authUser, isAdmin, isAdminRoute, isAdminAuditRoute]);
 
   useEffect(() => {
     if (!authReady || !authUser || isAdmin || isAdminRoute) return;
@@ -898,7 +898,36 @@ const ResumeBuilder = () => {
   // -------------------------------------------------------------
   // Word 匯出核心
   // -------------------------------------------------------------
-  const buildLegacyWordBlob = async (sourceData = data) => {
+  const isImageDataUrl = (value) => /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(String(value || ''));
+
+  const resolvePhotoDataUrlForExport = async (sourceData = data, options = {}) => {
+    const rawPhotoValue = String(sourceData?.photoDataUrl || '').trim();
+    if (!rawPhotoValue) return '';
+    if (isImageDataUrl(rawPhotoValue)) return rawPhotoValue;
+
+    const recordId = String(options?.recordId || currentDraftId || '').trim();
+    if (!recordId) {
+      return rawPhotoValue;
+    }
+
+    try {
+      const headers = await getAuthRequestHeaders();
+      const response = await fetch(`${getApiEndpoint('/api/resume-photo')}?recordId=${encodeURIComponent(recordId)}`, {
+        method: 'GET',
+        headers,
+      });
+      const result = await parseResponsePayload(response);
+      if (response.ok && result?.ok && isImageDataUrl(result?.dataUrl)) {
+        return String(result.dataUrl);
+      }
+    } catch (error) {
+      console.warn('無法取得可嵌入的照片 Data URL，將沿用目前照片來源：', error);
+    }
+
+    return rawPhotoValue;
+  };
+
+  const buildLegacyWordBlob = async (sourceData = data, options = {}) => {
     const formData = sourceData || data;
     const checked = '&#9745;';
     const unchecked = '&#9744;';
@@ -909,7 +938,8 @@ const ResumeBuilder = () => {
       ? `<img src="${safeLogoSrc}" alt="灃禾集團 Logo" style="max-width: 660px; width: 100%; height: auto; display: block; margin: 0 auto;" />`
       : '';
     const safeText = (value) => escapeHTMLWithBreaks(value);
-    const safePhotoSrc = formData.photoDataUrl ? String(formData.photoDataUrl).replace(/"/g, '&quot;') : '';
+    const resolvedPhotoDataUrl = await resolvePhotoDataUrlForExport(formData, options);
+    const safePhotoSrc = resolvedPhotoDataUrl ? String(resolvedPhotoDataUrl).replace(/"/g, '&quot;') : '';
     const educationOutput = getEducationForOutput(formData.education);
     const hasCertificateValue = hasValue(formData.certificates);
     const [fillYear = '', fillMonth = '', fillDay = ''] = (formData.fillDate || '').split('-');
@@ -975,7 +1005,7 @@ const ResumeBuilder = () => {
             <td class="center bold" style="width: 12%;">性別</td>
             <td class="center" style="width: 28%;">${getCb(formData.gender === '男')} 男 &nbsp;&nbsp;&nbsp;&nbsp; ${getCb(formData.gender === '女')} 女</td>
             <td rowspan="5" style="width: 20%; text-align: center; vertical-align: middle;">
-              ${safePhotoSrc ? `<img src="${safePhotoSrc}" alt="個人照片" style="width: ${PHOTO_SIZE_CM}; height: ${PHOTO_SIZE_CM}; object-fit: cover; display: block; margin: 0 auto;" />` : ''}
+              ${safePhotoSrc ? `<img src="${safePhotoSrc}" alt="個人照片" style="width: ${PHOTO_WIDTH_CM}; height: ${PHOTO_HEIGHT_CM}; object-fit: cover; display: block; margin: 0 auto;" />` : ''}
             </td>
           </tr>
           <tr>
@@ -1084,7 +1114,7 @@ const ResumeBuilder = () => {
     }
     if (!skipValidation && !ensureValidBeforeAction('匯出 Word')) return;
 
-    const blob = await buildLegacyWordBlob();
+    const blob = await buildLegacyWordBlob(data, { recordId: currentDraftId });
     downloadBlob(blob, getExportFilename(data.name, data.fillDate));
   };
 
@@ -1121,7 +1151,7 @@ const ResumeBuilder = () => {
     throw new Error(`找不到可用模板：${WORD_TEMPLATE_FILENAME}（已嘗試：${triedCandidates.join(', ')}）`);
   };
 
-  const buildTemplateWordBlob = async (sourceData = data) => {
+  const buildTemplateWordBlob = async (sourceData = data, options = {}) => {
     const formData = sourceData || data;
     const JSZip = await loadJSZipModule();
     const templateBuffer = await fetchTemplateBuffer();
@@ -1134,9 +1164,10 @@ const ResumeBuilder = () => {
     }
 
     let photoRelationshipId = '';
-    if (formData.photoDataUrl) {
+    const exportPhotoDataUrl = await resolvePhotoDataUrlForExport(formData, options);
+    if (exportPhotoDataUrl) {
       try {
-        photoRelationshipId = await injectPhotoIntoWordZip(zip, formData.photoDataUrl);
+        photoRelationshipId = await injectPhotoIntoWordZip(zip, exportPhotoDataUrl);
       } catch (error) {
         console.warn('照片嵌入失敗，將略過照片繼續匯出 .docx：', error);
       }
@@ -1160,9 +1191,9 @@ const ResumeBuilder = () => {
     });
   };
 
-  const buildTemplateWordBlobWithFallback = async (sourceData = data) => {
+  const buildTemplateWordBlobWithFallback = async (sourceData = data, options = {}) => {
     try {
-      const blob = await buildTemplateWordBlob(sourceData);
+      const blob = await buildTemplateWordBlob(sourceData, options);
       return { blob, skippedPhoto: false };
     } catch (error) {
       const hasPhoto = Boolean(String(sourceData?.photoDataUrl || '').trim());
@@ -1175,7 +1206,7 @@ const ResumeBuilder = () => {
         photoDataUrl: '',
       };
 
-      const blobWithoutPhoto = await buildTemplateWordBlob(withoutPhotoData);
+      const blobWithoutPhoto = await buildTemplateWordBlob(withoutPhotoData, options);
       return { blob: blobWithoutPhoto, skippedPhoto: true };
     }
   };
@@ -1195,15 +1226,16 @@ const ResumeBuilder = () => {
     setIsExportingWord(true);
 
     try {
-      const { blob: outputBlob, skippedPhoto } = await buildTemplateWordBlobWithFallback(data);
+      const { blob: outputBlob, skippedPhoto } = await buildTemplateWordBlobWithFallback(data, {
+        recordId: currentDraftId,
+      });
       downloadBlob(outputBlob, getExportFilename(data.name, data.fillDate).replace(/\.doc$/i, '.docx'));
       if (skippedPhoto) {
         showNotice('照片無法嵌入模板，已改為無照片 .docx 匯出。', 'error');
       }
     } catch (error) {
-      console.error('模板匯出失敗，改用相容模式：', error);
-      showNotice('模板匯出失敗，已改用相容模式匯出 .doc。', 'error');
-      await exportToWordLegacy(true);
+      console.error('模板匯出失敗（僅支援 .docx）：', error);
+      showNotice(`Word 匯出失敗（僅支援 .docx）：${error?.message || '請稍後再試。'}`, 'error');
     } finally {
       setIsExportingWord(false);
     }
@@ -1280,7 +1312,9 @@ const ResumeBuilder = () => {
       let attachmentMimeType;
 
       try {
-        const { blob, skippedPhoto } = await buildTemplateWordBlobWithFallback(renderData);
+        const { blob, skippedPhoto } = await buildTemplateWordBlobWithFallback(renderData, {
+          recordId: savedRecord?.id || currentDraftId,
+        });
         attachmentBlob = blob;
         attachmentFilename = getExportFilename(renderData.name, renderData.fillDate).replace(/\.doc$/i, '.docx');
         attachmentMimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -1288,11 +1322,8 @@ const ResumeBuilder = () => {
           showNotice('照片無法嵌入模板，已改為無照片 .docx 寄送。', 'error');
         }
       } catch (error) {
-        console.error('模板產生失敗，改用相容模式寄送：', error);
-        attachmentBlob = await buildLegacyWordBlob(renderData);
-        attachmentFilename = getExportFilename(renderData.name, renderData.fillDate);
-        attachmentMimeType = 'application/msword';
-        showNotice('模板產生失敗，已改用相容 .doc 格式寄送。', 'error');
+        console.error('模板產生失敗（僅支援 .docx）：', error);
+        throw new Error(`Word 附件產生失敗（僅支援 .docx）：${error?.message || '請稍後再試。'}`);
       }
 
       const attachmentBuffer = await attachmentBlob.arrayBuffer();
@@ -1424,7 +1455,9 @@ const ResumeBuilder = () => {
       <TopNav
         isAdmin={isAdmin}
         isAdminRoute={isAdminRoute}
+        isAdminAuditRoute={isAdminAuditRoute}
         onNewDraft={createNewDraft}
+        onBackToAdminRecords={goToAdminRecordsPage}
         onLoadDrafts={refreshAdminRecords}
         onExportWord={exportToWord}
         onPrint={printDocument}
@@ -1441,72 +1474,74 @@ const ResumeBuilder = () => {
 
       <div className="max-w-5xl mx-auto mt-8 px-4">
         {isAdminRoute ? (
-          <div className="space-y-6">
-            <AdminRecordPanel
-              query={adminQuery}
-              onQueryChange={handleAdminQueryChange}
-              onSearch={handleAdminSearch}
-              onReset={handleAdminReset}
-              onOpenAuditLogs={openAuditLogModal}
-              records={draftRecords}
-              isLoading={isLoadingDrafts}
-              isUpdatingStatusId={statusUpdatingRecordId}
-              deletingId={deletingDraftId}
-              editingRecordId={currentDraftId}
-              selectedRecordId={selectedAdminRecordId}
-              onSelectRecord={handleAdminSelectRecord}
-              onView={handleAdminViewRecord}
-              onEdit={handleAdminEditRecord}
-              onDelete={deleteDraftRecord}
-              onUpdateContactStatus={updateContactStatus}
-            />
-            <AdminEditDrawer
-              isOpen={isAdminDrawerOpen && Boolean(currentDraftId)}
-              title={data.name ? `編輯履歷：${data.name}` : '編輯履歷'}
-              isSaving={isSavingDraft}
-              isExportingWord={isExportingWord}
-              canExport={Boolean(currentDraftId)}
-              onClose={() => {
-                setIsAdminDrawerOpen(false);
-                setCurrentDraftId(selectedAdminRecordId || '');
-              }}
-              onSave={saveDraft}
-              onExportWord={exportToWord}
-              onPrint={printDocument}
-            >
-              <EditMode
-                data={data}
-                validationErrors={validationErrors}
-                activeErrorField={activeErrorField}
-                adultMaxBirthDate={adultMaxBirthDate}
-                getErrorInputClass={getErrorInputClass}
-                onChange={handleChange}
-                onPhotoUpload={handlePhotoUpload}
-                onClearPhoto={clearPhoto}
-                onEducationChange={handleEducationChange}
-                onAddEducation={addEducation}
-                onRemoveEducation={removeEducation}
-                onExperienceChange={handleExperienceChange}
-                onAddExperience={addExperience}
-                onRemoveExperience={removeExperience}
-                onPreview={goPreview}
-                onCheckboxChange={handleCheckboxChange}
-                showPreviewAction={false}
-              />
-            </AdminEditDrawer>
-            <AdminViewModal
-              isOpen={Boolean(viewingRecord)}
-              data={viewingRecord}
-              onClose={() => setViewingRecord(null)}
-            />
-            <AdminAuditLogModal
-              isOpen={isAuditModalOpen}
+          isAdminAuditRoute ? (
+            <AdminAuditLogPage
               logs={auditLogs}
               isLoading={isLoadingAuditLogs}
-              onClose={() => setIsAuditModalOpen(false)}
-              onRefresh={refreshAuditLogModal}
+              onRefresh={loadAuditLogs}
+              onBack={goToAdminRecordsPage}
             />
-          </div>
+          ) : (
+            <div className="space-y-6">
+              <AdminRecordPanel
+                query={adminQuery}
+                onQueryChange={handleAdminQueryChange}
+                onSearch={handleAdminSearch}
+                onReset={handleAdminReset}
+                onOpenAuditLogs={goToAuditLogPage}
+                records={draftRecords}
+                isLoading={isLoadingDrafts}
+                isUpdatingStatusId={statusUpdatingRecordId}
+                deletingId={deletingDraftId}
+                editingRecordId={currentDraftId}
+                selectedRecordId={selectedAdminRecordId}
+                onSelectRecord={handleAdminSelectRecord}
+                onView={handleAdminViewRecord}
+                onEdit={handleAdminEditRecord}
+                onDelete={deleteDraftRecord}
+                onUpdateContactStatus={updateContactStatus}
+              />
+              <AdminEditDrawer
+                isOpen={isAdminDrawerOpen && Boolean(currentDraftId)}
+                title={data.name ? `編輯履歷：${data.name}` : '編輯履歷'}
+                isSaving={isSavingDraft}
+                isExportingWord={isExportingWord}
+                canExport={Boolean(currentDraftId)}
+                onClose={() => {
+                  setIsAdminDrawerOpen(false);
+                  setCurrentDraftId(selectedAdminRecordId || '');
+                }}
+                onSave={saveDraft}
+                onExportWord={exportToWord}
+                onPrint={printDocument}
+              >
+                <EditMode
+                  data={data}
+                  validationErrors={validationErrors}
+                  activeErrorField={activeErrorField}
+                  adultMaxBirthDate={adultMaxBirthDate}
+                  getErrorInputClass={getErrorInputClass}
+                  onChange={handleChange}
+                  onPhotoUpload={handlePhotoUpload}
+                  onClearPhoto={clearPhoto}
+                  onEducationChange={handleEducationChange}
+                  onAddEducation={addEducation}
+                  onRemoveEducation={removeEducation}
+                  onExperienceChange={handleExperienceChange}
+                  onAddExperience={addExperience}
+                  onRemoveExperience={removeExperience}
+                  onPreview={goPreview}
+                  onCheckboxChange={handleCheckboxChange}
+                  showPreviewAction={false}
+                />
+              </AdminEditDrawer>
+              <AdminViewModal
+                isOpen={Boolean(viewingRecord)}
+                data={viewingRecord}
+                onClose={() => setViewingRecord(null)}
+              />
+            </div>
+          )
         ) : (
           <div className="space-y-8">
             {userSubmitState ? (

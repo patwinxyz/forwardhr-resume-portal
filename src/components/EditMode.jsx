@@ -5,7 +5,8 @@ import {
   jobOptions,
   langOptions,
   locOptions,
-  PHOTO_SIZE_CM,
+  PHOTO_WIDTH_CM,
+  PHOTO_HEIGHT_CM,
   timeOptions,
   transOptions,
 } from '../modules/resumeCore';
@@ -57,7 +58,7 @@ const EditMode = ({
   };
 
   return (
-    <div className={`${compactMode ? 'md:[zoom:0.75]' : ''} space-y-6`}>
+    <div className={`${compactMode ? 'md:[zoom:0.90]' : ''} space-y-6`}>
       {wizardMode && (
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
           <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
@@ -85,6 +86,8 @@ const EditMode = ({
         </div>
       )}
 
+      <div className={wizardMode ? 'bg-white border border-gray-200 rounded-xl p-4 md:p-5' : ''}>
+      <div className={wizardMode ? 'min-h-[520px] md:min-h-[640px] space-y-6' : 'space-y-6'}>
       {isStepVisible(0) && (
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h2 className="text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-6 flex items-center gap-2">
@@ -246,7 +249,7 @@ const EditMode = ({
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">個人照片（選填）</label>
             <p className="text-xs text-gray-500 mb-2">
-              照片顯示與匯出尺寸固定為 {PHOTO_SIZE_CM} x {PHOTO_SIZE_CM}，限 5MB 內，系統會自動壓縮至 300KB 以下再上傳。
+              照片顯示與匯出尺寸固定為寬 {PHOTO_WIDTH_CM}、高 {PHOTO_HEIGHT_CM}，限 5MB 內，系統會自動壓縮至 300KB 以下再上傳。
             </p>
             <div className="flex flex-col md:flex-row gap-4 items-start">
               <input
@@ -268,7 +271,7 @@ const EditMode = ({
             {data.photoDataUrl && (
               <div
                 className="mt-3 border border-gray-300 rounded-md overflow-hidden bg-white"
-                style={{ width: PHOTO_SIZE_CM, height: PHOTO_SIZE_CM }}
+                style={{ width: PHOTO_WIDTH_CM, height: PHOTO_HEIGHT_CM }}
               >
                 <img src={data.photoDataUrl} alt="照片預覽" className="w-full h-full object-cover" />
               </div>
@@ -419,9 +422,11 @@ const EditMode = ({
         </div>
       </div>
       )}
+      </div>
+      </div>
 
       {wizardMode ? (
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center justify-between pt-2 min-h-[64px]">
           <button
             type="button"
             onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}

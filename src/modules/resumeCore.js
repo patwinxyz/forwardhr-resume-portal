@@ -84,8 +84,10 @@ const PIC_NS = 'http://schemas.openxmlformats.org/drawingml/2006/picture';
 const IMAGE_RELATIONSHIP_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
 const WORD_TEMPLATE_FILENAME = '評點製_人事資料表.docx';
 const LOGO_FILENAME = 'logo.jpg';
-const PHOTO_SIZE_CM = '2.5cm';
-const PHOTO_SIZE_EMU = 900000;
+const PHOTO_WIDTH_CM = '3.51cm';
+const PHOTO_HEIGHT_CM = '4.4cm';
+const PHOTO_WIDTH_EMU = 1263600;
+const PHOTO_HEIGHT_EMU = 1584000;
 const MIN_AGE = 18;
 
 let logoDataUrlCache = '';
@@ -353,15 +355,15 @@ const createWordPhotoDrawing = (xmlDocument, relationshipId) => {
 
   const inlineExtent = drawingNode.getElementsByTagNameNS(WORD_DRAWING_NS, 'extent')[0];
   if (inlineExtent) {
-    inlineExtent.setAttribute('cx', String(PHOTO_SIZE_EMU));
-    inlineExtent.setAttribute('cy', String(PHOTO_SIZE_EMU));
+    inlineExtent.setAttribute('cx', String(PHOTO_WIDTH_EMU));
+    inlineExtent.setAttribute('cy', String(PHOTO_HEIGHT_EMU));
   }
 
   const xfrm = drawingNode.getElementsByTagNameNS(DRAWING_MAIN_NS, 'xfrm')[0];
   const xfrmExtent = xfrm ? xfrm.getElementsByTagNameNS(DRAWING_MAIN_NS, 'ext')[0] : null;
   if (xfrmExtent) {
-    xfrmExtent.setAttribute('cx', String(PHOTO_SIZE_EMU));
-    xfrmExtent.setAttribute('cy', String(PHOTO_SIZE_EMU));
+    xfrmExtent.setAttribute('cx', String(PHOTO_WIDTH_EMU));
+    xfrmExtent.setAttribute('cy', String(PHOTO_HEIGHT_EMU));
   }
 
   const docPr = drawingNode.getElementsByTagNameNS(WORD_DRAWING_NS, 'docPr')[0];
@@ -430,10 +432,23 @@ const convertImageDataUrlToJpeg = (dataUrl) =>
 const getWordPhotoAsset = async (photoDataUrl) => {
   if (!photoDataUrl) return null;
 
-  let normalizedDataUrl = String(photoDataUrl);
+  let normalizedDataUrl = String(photoDataUrl).trim();
   let mimeType = getImageMimeFromDataUrl(normalizedDataUrl);
 
-  if (mimeType === 'image/webp') {
+  if (!mimeType && /^https?:\/\//i.test(normalizedDataUrl)) {
+    const response = await fetch(normalizedDataUrl);
+    if (!response.ok) {
+      throw new Error(`照片下載失敗（${response.status}）`);
+    }
+    const blob = await response.blob();
+    normalizedDataUrl = await blobToDataUrl(blob);
+    mimeType = getImageMimeFromDataUrl(normalizedDataUrl) || String(blob.type || '').toLowerCase();
+  }
+
+  const isWordFriendlyImage = (type) =>
+    ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp'].includes(String(type || '').toLowerCase());
+
+  if (mimeType === 'image/webp' || !isWordFriendlyImage(mimeType)) {
     normalizedDataUrl = await convertImageDataUrlToJpeg(normalizedDataUrl);
     mimeType = getImageMimeFromDataUrl(normalizedDataUrl) || 'image/jpeg';
   }
@@ -636,7 +651,8 @@ export {
   getExportFilename,
   WORD_TEMPLATE_FILENAME,
   LOGO_FILENAME,
-  PHOTO_SIZE_CM,
+  PHOTO_WIDTH_CM,
+  PHOTO_HEIGHT_CM,
   MIN_AGE,
   getWordTemplateCandidates,
   loadJSZipModule,

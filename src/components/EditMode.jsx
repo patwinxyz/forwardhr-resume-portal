@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FileText, Mail, MapPin, Phone, Plus, Trash2 } from 'lucide-react';
 import CheckboxGroup from './CheckboxGroup';
 import {
@@ -35,12 +35,7 @@ const EditMode = ({
   const [currentStep, setCurrentStep] = useState(0);
   const stepTopRef = useRef(null);
   const prevStepRef = useRef(0);
-
-  const steps = useMemo(
-    () => ['基本資料', '學經歷', '專長與求職條件'],
-    []
-  );
-  const totalSteps = steps.length;
+  const totalSteps = 3;
 
   useEffect(() => {
     if (!wizardMode && currentStep !== 0) {
@@ -61,7 +56,6 @@ const EditMode = ({
   }, [currentStep, wizardMode]);
 
   const isStepVisible = (stepIndex) => !wizardMode || currentStep === stepIndex;
-  const progressPercent = wizardMode ? ((currentStep + 1) / totalSteps) * 100 : 100;
 
   const checkboxGroupSharedProps = {
     data,
@@ -74,23 +68,6 @@ const EditMode = ({
   return (
     <div className={`resume-edit-form ${wizardMode ? 'pb-28 sm:pb-0' : ''} ${compactMode ? 'md:[zoom:0.90]' : ''} space-y-4 sm:space-y-6`}>
       <div ref={stepTopRef} />
-      {wizardMode && (
-        <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-            <span>填寫進度</span>
-            <span>{currentStep + 1} / {totalSteps}</span>
-          </div>
-          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-blue-600 transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-          <div className="mt-2 text-sm text-blue-700 font-medium">
-            目前步驟：{steps[currentStep]}
-          </div>
-        </div>
-      )}
 
       {validationErrors.length > 0 && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 sm:px-5 sm:py-4">

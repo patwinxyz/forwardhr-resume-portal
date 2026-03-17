@@ -134,8 +134,20 @@ const EditMode = ({
             <label className="block text-sm font-medium text-gray-700 mb-1">聯絡電話</label>
             <div className="relative">
               <Phone className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-              <input type="tel" name="phone" value={data.phone} onChange={onChange} data-field-key="phone" id="field-phone" className={getErrorInputClass('phone', 'w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')} />
+              <input
+                type="tel"
+                name="phone"
+                value={data.phone}
+                onChange={onChange}
+                data-field-key="phone"
+                id="field-phone"
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="請輸入 10 碼數字"
+                className={getErrorInputClass('phone', 'w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
+              />
             </div>
+            <div className="text-xs text-gray-500 mt-1">需為 10 碼數字</div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">電子郵件</label>

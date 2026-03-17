@@ -133,7 +133,7 @@ const ResumeBuilder = () => {
   const validateForm = () => {
     const errors = [];
     const pushError = (fieldKey, message) => errors.push({ fieldKey, message });
-    const phonePattern = /^[0-9+()\-\s]{6,20}$/;
+    const phonePattern = /^\d{10}$/;
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const ageNumber = Number(data.age);
     const adultMaxBirthDate = getAdultMaxBirthDate();
@@ -153,7 +153,7 @@ const ResumeBuilder = () => {
     if (!hasValue(data.phone)) {
       pushError('phone', '聯絡電話');
     } else if (!phonePattern.test(data.phone.trim())) {
-      pushError('phone', '聯絡電話格式不正確');
+      pushError('phone', '聯絡電話需為 10 碼數字');
     }
     if (!hasValue(data.email)) {
       pushError('email', '電子郵件');
@@ -221,6 +221,11 @@ const ResumeBuilder = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     clearValidationErrors();
+    if (name === 'phone') {
+      const digitsOnly = String(value || '').replace(/\D/g, '').slice(0, 10);
+      setData((prev) => ({ ...prev, phone: digitsOnly }));
+      return;
+    }
     if (name === 'birthDate') {
       setData((prev) => ({
         ...prev,

@@ -13,7 +13,6 @@ import {
 
 const EditMode = ({
   data,
-  validationErrors,
   activeErrorField,
   adultMaxBirthDate,
   getErrorInputClass,
@@ -28,6 +27,7 @@ const EditMode = ({
   onRemoveExperience,
   onPreview,
   onCheckboxChange,
+  onBeforeNextStep,
   showPreviewAction = true,
   wizardMode = false,
   compactMode = false,
@@ -51,13 +51,18 @@ const EditMode = ({
     const anchor = stepTopRef.current;
     if (!anchor) return;
     window.requestAnimationFrame(() => {
-      const navOffset = 88;
-      const targetY = Math.max(0, window.scrollY + anchor.getBoundingClientRect().top - navOffset);
-      window.scrollTo({ top: targetY, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   }, [currentStep, wizardMode]);
 
   const isStepVisible = (stepIndex) => !wizardMode || currentStep === stepIndex;
+  const goNextStep = () => {
+    if (typeof onBeforeNextStep === 'function') {
+      const canProceed = onBeforeNextStep(currentStep);
+      if (!canProceed) return;
+    }
+    setCurrentStep((prev) => Math.min(totalSteps - 1, prev + 1));
+  };
 
   const checkboxGroupSharedProps = {
     data,
@@ -70,15 +75,6 @@ const EditMode = ({
   return (
     <div className={`resume-edit-form ${wizardMode ? 'pb-28 sm:pb-0' : ''} ${compactMode ? 'md:[zoom:0.90]' : ''} space-y-4 sm:space-y-6`}>
       <div ref={stepTopRef} className="scroll-mt-24" />
-
-      {validationErrors.length > 0 && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 sm:px-5 sm:py-4">
-          <div className="font-semibold">請先修正：{validationErrors[0]}</div>
-          <div className="text-sm mt-1">
-            {showPreviewAction ? '完成後再進行預覽、列印或匯出。' : '完成後再進行下一步操作。'}
-          </div>
-        </div>
-      )}
 
       <div className={wizardMode ? 'bg-white border border-gray-200 rounded-xl p-3 sm:p-4 md:p-5' : ''}>
       <div className={wizardMode ? 'min-h-[440px] sm:min-h-[520px] md:min-h-[640px] space-y-5 sm:space-y-6' : 'space-y-5 sm:space-y-6'}>
@@ -444,7 +440,7 @@ const EditMode = ({
           {currentStep < totalSteps - 1 ? (
             <button
               type="button"
-              onClick={() => setCurrentStep((prev) => Math.min(totalSteps - 1, prev + 1))}
+              onClick={goNextStep}
               className="bg-blue-600 text-white px-4 sm:px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 flex-1 sm:flex-none"
             >
               下一步
@@ -453,9 +449,9 @@ const EditMode = ({
             showPreviewAction && (
               <button
                 onClick={onPreview}
-                className="bg-blue-600 text-white w-full sm:w-auto justify-center px-5 sm:px-8 py-3 rounded-lg font-bold text-base sm:text-lg hover:bg-blue-700 shadow-md inline-flex items-center gap-2"
+                className="bg-blue-600 text-white flex-1 sm:flex-none justify-center px-4 sm:px-6 py-2.5 rounded-lg font-medium text-sm sm:text-base hover:bg-blue-700 shadow-md inline-flex items-center gap-2"
               >
-                完成填寫，前往匯出 / 預覽 <FileText className="w-5 h-5" />
+                完成填寫 <FileText className="w-4 h-4" />
               </button>
             )
           )}

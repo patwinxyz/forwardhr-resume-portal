@@ -75,6 +75,14 @@ const getDefaultPreviewScale = () => {
 };
 
 const clampPreviewScale = (value) => Math.min(1, Math.max(0.55, Number(value) || 0.8));
+const BASIC_REQUIRED_FIELD_KEYS = new Set(['name', 'gender', 'birthDate', 'maritalStatus', 'phone', 'email', 'address']);
+const isStepField = (stepIndex, fieldKey) => {
+  const safeField = String(fieldKey || '');
+  if (!safeField) return false;
+  if (stepIndex === 0) return BASIC_REQUIRED_FIELD_KEYS.has(safeField);
+  if (stepIndex === 1) return safeField.startsWith('education.');
+  return false;
+};
 
 const normalizeResumeData = (source) => {
   const raw = source && typeof source === 'object' ? source : {};
@@ -798,6 +806,20 @@ const ResumeBuilder = () => {
       return false;
     }
 
+    return true;
+  };
+
+  const ensureValidBeforeNextStep = (stepIndex) => {
+    const errors = validateForm();
+    const firstStepError = errors.find((item) => isStepField(stepIndex, item?.fieldKey));
+    setValidationErrors(firstStepError ? [firstStepError.message] : []);
+    setActiveErrorField(firstStepError ? firstStepError.fieldKey : '');
+
+    if (firstStepError) {
+      focusField(firstStepError.fieldKey);
+      showNotice(`請先修正：${firstStepError.message}，再進入下一步。`, 'error');
+      return false;
+    }
     return true;
   };
 
@@ -1573,7 +1595,6 @@ const ResumeBuilder = () => {
               >
                 <EditMode
                   data={data}
-                  validationErrors={validationErrors}
                   activeErrorField={activeErrorField}
                   adultMaxBirthDate={adultMaxBirthDate}
                   getErrorInputClass={getErrorInputClass}
@@ -1628,7 +1649,6 @@ const ResumeBuilder = () => {
               <div ref={editSectionRef}>
                 <EditMode
                   data={data}
-                  validationErrors={validationErrors}
                   activeErrorField={activeErrorField}
                   adultMaxBirthDate={adultMaxBirthDate}
                   getErrorInputClass={getErrorInputClass}
@@ -1643,6 +1663,7 @@ const ResumeBuilder = () => {
                   onRemoveExperience={removeExperience}
                   onPreview={goPreview}
                   onCheckboxChange={handleCheckboxChange}
+                  onBeforeNextStep={ensureValidBeforeNextStep}
                   showPreviewAction={true}
                   wizardMode={true}
                   compactMode={true}

@@ -35,9 +35,11 @@ const NoticeBanner = ({ notice }) => {
         }`}
       >
         <div className="flex items-start gap-2">
-          <span className="mt-[1px] text-base leading-none">
-            {tone === 'error' ? '!' : tone === 'success' ? 'OK' : 'i'}
-          </span>
+          {tone !== 'info' && (
+            <span className="mt-[1px] text-base leading-none">
+              {tone === 'error' ? '!' : 'OK'}
+            </span>
+          )}
           <span>{notice.message}</span>
         </div>
       </div>

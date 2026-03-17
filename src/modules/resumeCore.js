@@ -97,10 +97,18 @@ const getPublicAssetPath = (filename) => {
 };
 
 const getWordTemplateCandidates = () => {
+  const encodedFilename = encodeURIComponent(WORD_TEMPLATE_FILENAME);
+  const baseTemplatePath = getPublicAssetPath(WORD_TEMPLATE_FILENAME);
+  const baseEncodedTemplatePath = getPublicAssetPath(encodedFilename);
   const candidates = [
+    baseTemplatePath,
+    baseEncodedTemplatePath,
     `/${WORD_TEMPLATE_FILENAME}`,
+    `/${encodedFilename}`,
     `./${WORD_TEMPLATE_FILENAME}`,
+    `./${encodedFilename}`,
     WORD_TEMPLATE_FILENAME,
+    encodedFilename,
   ];
   return Array.from(new Set(candidates));
 };

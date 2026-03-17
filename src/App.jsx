@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import AdminEditDrawer from './components/AdminEditDrawer';
 import AdminRecordPanel from './components/AdminRecordPanel';
 import AdminViewModal from './components/AdminViewModal';
 import DraftManager from './components/DraftManager';
 import EditMode from './components/EditMode';
 import NoticeBanner from './components/NoticeBanner';
+import PreviewMode from './components/PreviewMode';
 import ResumeStyles from './components/ResumeStyles';
 import TopNav from './components/TopNav';
 import {
@@ -195,6 +196,7 @@ const convertImageToUploadDataUrl = async (file) => {
 const ResumeBuilder = () => {
   const isAdminRoute =
     typeof window !== 'undefined' && /^\/admin(?:\/|$)/i.test(window.location.pathname || '');
+  const editSectionRef = useRef(null);
   const [data, setData] = useState(() => createBlankResumeData());
   const [validationErrors, setValidationErrors] = useState([]);
   const [isExportingWord, setIsExportingWord] = useState(false);
@@ -214,6 +216,8 @@ const ResumeBuilder = () => {
   const [authUser, setAuthUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const previewSectionRef = useRef(null);
   const adminEmails = parseAdminEmails();
   const authEmail = String(authUser?.email || '').trim().toLowerCase();
   const isAdmin = authEmail ? adminEmails.includes(authEmail) : false;
@@ -456,6 +460,7 @@ const ResumeBuilder = () => {
       return;
     }
 
+    setIsPreviewMode(false);
     clearValidationErrors();
     const nextData = normalizeResumeData(record.formData);
     setData(nextData);
@@ -506,6 +511,7 @@ const ResumeBuilder = () => {
     setData(createBlankResumeData());
     setCurrentDraftId('');
     setSelectedAdminRecordId('');
+    setIsPreviewMode(false);
     showNotice('已建立新表單。', 'info');
   };
 
@@ -651,7 +657,18 @@ const ResumeBuilder = () => {
     return true;
   };
 
-  const goPreview = () => {};
+  const goPreview = () => {
+    if (!ensureValidBeforeAction('預覽')) return;
+    setIsPreviewMode(true);
+    previewSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const goBackToEdit = () => {
+    setIsPreviewMode(false);
+    setTimeout(() => {
+      editSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -975,28 +992,43 @@ const ResumeBuilder = () => {
     downloadBlob(blob, getExportFilename(data.name, data.fillDate));
   };
 
-  const buildTemplateWordBlob = async (sourceData = data) => {
-    const formData = sourceData || data;
-    const JSZip = await loadJSZipModule();
+  const ZIP_SIGNATURES = new Set(['504b0304', '504b0506', '504b0708']);
 
+  const isLikelyZipArrayBuffer = (arrayBuffer) => {
+    if (!(arrayBuffer instanceof ArrayBuffer) || arrayBuffer.byteLength < 4) {
+      return false;
+    }
+    const headBytes = new Uint8Array(arrayBuffer.slice(0, 4));
+    const headHex = Array.from(headBytes)
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+    return ZIP_SIGNATURES.has(headHex);
+  };
+
+  const fetchTemplateBuffer = async () => {
     const templateCandidates = getWordTemplateCandidates();
-    let templateBuffer = null;
+    const triedCandidates = [];
 
     for (const candidateUrl of templateCandidates) {
+      triedCandidates.push(candidateUrl);
       try {
         const response = await fetch(candidateUrl, { cache: 'no-store' });
-        if (response.ok) {
-          templateBuffer = await response.arrayBuffer();
-          break;
-        }
+        if (!response.ok) continue;
+        const buffer = await response.arrayBuffer();
+        if (!isLikelyZipArrayBuffer(buffer)) continue;
+        return buffer;
       } catch (error) {
         // continue trying other candidates
       }
     }
 
-    if (!templateBuffer) {
-      throw new Error(`找不到模板檔案：${WORD_TEMPLATE_FILENAME}`);
-    }
+    throw new Error(`找不到可用模板：${WORD_TEMPLATE_FILENAME}（已嘗試：${triedCandidates.join(', ')}）`);
+  };
+
+  const buildTemplateWordBlob = async (sourceData = data) => {
+    const formData = sourceData || data;
+    const JSZip = await loadJSZipModule();
+    const templateBuffer = await fetchTemplateBuffer();
 
     const zip = await JSZip.loadAsync(templateBuffer);
     const documentXmlFile = zip.file('word/document.xml');
@@ -1007,7 +1039,11 @@ const ResumeBuilder = () => {
 
     let photoRelationshipId = '';
     if (formData.photoDataUrl) {
-      photoRelationshipId = await injectPhotoIntoWordZip(zip, formData.photoDataUrl);
+      try {
+        photoRelationshipId = await injectPhotoIntoWordZip(zip, formData.photoDataUrl);
+      } catch (error) {
+        console.warn('照片嵌入失敗，將略過照片繼續匯出 .docx：', error);
+      }
     }
 
     const documentXml = await documentXmlFile.async('string');
@@ -1028,6 +1064,26 @@ const ResumeBuilder = () => {
     });
   };
 
+  const buildTemplateWordBlobWithFallback = async (sourceData = data) => {
+    try {
+      const blob = await buildTemplateWordBlob(sourceData);
+      return { blob, skippedPhoto: false };
+    } catch (error) {
+      const hasPhoto = Boolean(String(sourceData?.photoDataUrl || '').trim());
+      if (!hasPhoto) {
+        throw error;
+      }
+
+      const withoutPhotoData = {
+        ...sourceData,
+        photoDataUrl: '',
+      };
+
+      const blobWithoutPhoto = await buildTemplateWordBlob(withoutPhotoData);
+      return { blob: blobWithoutPhoto, skippedPhoto: true };
+    }
+  };
+
   const exportToWord = async () => {
     if (!isAdmin) {
       showNotice('僅管理員可使用 Word 匯出功能。', 'error');
@@ -1043,8 +1099,11 @@ const ResumeBuilder = () => {
     setIsExportingWord(true);
 
     try {
-      const outputBlob = await buildTemplateWordBlob();
+      const { blob: outputBlob, skippedPhoto } = await buildTemplateWordBlobWithFallback(data);
       downloadBlob(outputBlob, getExportFilename(data.name, data.fillDate).replace(/\.doc$/i, '.docx'));
+      if (skippedPhoto) {
+        showNotice('照片無法嵌入模板，已改為無照片 .docx 匯出。', 'error');
+      }
     } catch (error) {
       console.error('模板匯出失敗，改用相容模式：', error);
       showNotice('模板匯出失敗，已改用相容模式匯出 .doc。', 'error');
@@ -1105,9 +1164,13 @@ const ResumeBuilder = () => {
       let attachmentMimeType;
 
       try {
-        attachmentBlob = await buildTemplateWordBlob(renderData);
+        const { blob, skippedPhoto } = await buildTemplateWordBlobWithFallback(renderData);
+        attachmentBlob = blob;
         attachmentFilename = getExportFilename(renderData.name, renderData.fillDate).replace(/\.doc$/i, '.docx');
         attachmentMimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        if (skippedPhoto) {
+          showNotice('照片無法嵌入模板，已改為無照片 .docx 寄送。', 'error');
+        }
       } catch (error) {
         console.error('模板產生失敗，改用相容模式寄送：', error);
         attachmentBlob = await buildLegacyWordBlob(renderData);
@@ -1150,7 +1213,7 @@ const ResumeBuilder = () => {
         throw new Error(detailMessage);
       }
 
-      showNotice('已成功送出，Word 附件已寄到指定信箱。', 'info');
+      showNotice('已成功送出，Word 附件已寄到指定信箱。', 'success');
       setData(latestData);
     } catch (error) {
       console.error('Send email failed:', error);
@@ -1163,6 +1226,8 @@ const ResumeBuilder = () => {
 
   const adultMaxBirthDate = getAdultMaxBirthDate();
   const isAuthConfigured = isFirebaseAuthConfigured();
+  const educationForPreview = getEducationForOutput(data.education);
+  const hasCertificates = hasValue(data.certificates);
 
   if (!isAuthConfigured) {
     return (
@@ -1304,25 +1369,59 @@ const ResumeBuilder = () => {
             />
           </div>
         ) : (
-          <EditMode
-            data={data}
-            validationErrors={validationErrors}
-            activeErrorField={activeErrorField}
-            adultMaxBirthDate={adultMaxBirthDate}
-            getErrorInputClass={getErrorInputClass}
-            onChange={handleChange}
-            onPhotoUpload={handlePhotoUpload}
-            onClearPhoto={clearPhoto}
-            onEducationChange={handleEducationChange}
-            onAddEducation={addEducation}
-            onRemoveEducation={removeEducation}
-            onExperienceChange={handleExperienceChange}
-            onAddExperience={addExperience}
-            onRemoveExperience={removeExperience}
-            onPreview={goPreview}
-            onCheckboxChange={handleCheckboxChange}
-            showPreviewAction={false}
-          />
+          <div className="space-y-8">
+            {!isPreviewMode ? (
+              <div ref={editSectionRef}>
+                <EditMode
+                  data={data}
+                  validationErrors={validationErrors}
+                  activeErrorField={activeErrorField}
+                  adultMaxBirthDate={adultMaxBirthDate}
+                  getErrorInputClass={getErrorInputClass}
+                  onChange={handleChange}
+                  onPhotoUpload={handlePhotoUpload}
+                  onClearPhoto={clearPhoto}
+                  onEducationChange={handleEducationChange}
+                  onAddEducation={addEducation}
+                  onRemoveEducation={removeEducation}
+                  onExperienceChange={handleExperienceChange}
+                  onAddExperience={addExperience}
+                  onRemoveExperience={removeExperience}
+                  onPreview={goPreview}
+                  onCheckboxChange={handleCheckboxChange}
+                  showPreviewAction={true}
+                />
+              </div>
+            ) : (
+              <div ref={previewSectionRef} className="space-y-4">
+                <PreviewMode
+                  data={data}
+                  educationForOutput={educationForPreview}
+                  hasCertificates={hasCertificates}
+                  previewScale={1}
+                />
+                <div className="bg-white border border-gray-200 rounded-xl px-4 py-4 flex flex-col sm:flex-row gap-3 sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={goBackToEdit}
+                    className="px-5 py-2.5 rounded-lg font-medium text-gray-700 border border-gray-300 hover:bg-gray-50"
+                  >
+                    回去修改
+                  </button>
+                  <button
+                    type="button"
+                    onClick={sendResumeByEmail}
+                    disabled={isSendingEmail}
+                    className={`px-5 py-2.5 rounded-lg font-medium text-white ${
+                      isSendingEmail ? 'bg-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
+                    }`}
+                  >
+                    {isSendingEmail ? '送出中...' : '送出寄送'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

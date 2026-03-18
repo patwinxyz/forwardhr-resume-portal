@@ -330,6 +330,18 @@ const ResumeBuilder = () => {
     hasBootstrappedUserResumeRef.current = false;
   }, [authUser?.uid, isAdminRoute, isAdmin]);
 
+  useEffect(() => {
+    if (!authReady || !authUser || isAdminRoute) return;
+    const loginEmail = String(authUser.email || '').trim();
+    if (!loginEmail) return;
+
+    setData((prev) => {
+      const currentEmail = String(prev.email || '').trim();
+      if (currentEmail) return prev;
+      return { ...prev, email: loginEmail };
+    });
+  }, [authReady, authUser?.email, isAdminRoute, currentDraftId]);
+
   const handleLogin = async () => {
     if (!isFirebaseAuthConfigured()) {
       showNotice('尚未設定 Firebase 登入，請先設定環境變數。', 'error');

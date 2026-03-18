@@ -38,6 +38,8 @@ import {
   loadJSZipModule,
   getEmbeddedLogoDataUrl,
   formatYearMonthForWordCell,
+  normalizeExperienceItem,
+  formatExperiencePeriod,
   calculateAgeFromBirthDate,
   getAdultMaxBirthDate,
   getEducationForOutput,
@@ -69,11 +71,14 @@ const formatIsoMonthInput = (rawValue) => {
 const getDefaultPreviewScale = () => {
   if (typeof window === 'undefined') return 0.8;
   const width = window.innerWidth || 1024;
+  const height = window.innerHeight || 900;
   if (width < 480) return 0.46;
   if (width < 640) return 0.5;
   if (width < 1024) return 0.64;
-  if (width < 1440) return 0.74;
-  return 0.78;
+  if (height < 860) return 0.56;
+  if (height < 960) return 0.6;
+  if (width < 1440) return 0.64;
+  return 0.68;
 };
 const BASIC_REQUIRED_FIELD_KEYS = new Set(['name', 'gender', 'birthDate', 'maritalStatus', 'phone', 'email', 'address']);
 const isStepField = (stepIndex, fieldKey) => {
@@ -90,7 +95,10 @@ const normalizeResumeData = (source) => {
     ...initialData,
     ...raw,
     education: Array.isArray(raw.education) && raw.education.length > 0 ? raw.education : [{ school: '', major: '', gradDate: '' }],
-    experience: Array.isArray(raw.experience) && raw.experience.length > 0 ? raw.experience : [{ company: '', title: '', period: '' }],
+    experience:
+      Array.isArray(raw.experience) && raw.experience.length > 0
+        ? raw.experience
+        : [{ company: '', title: '', periodStart: '', periodEnd: '', period: '' }],
     languages: Array.isArray(raw.languages) ? raw.languages : [],
     transportation: Array.isArray(raw.transportation) ? raw.transportation : [],
     locations: Array.isArray(raw.locations) ? raw.locations : [],
@@ -112,6 +120,9 @@ const normalizeResumeData = (source) => {
         gradDate: formatIsoMonthInput(edu?.gradDate || ''),
       }))
     : [{ school: '', major: '', gradDate: '' }];
+  data.experience = Array.isArray(data.experience)
+    ? data.experience.map((exp) => normalizeExperienceItem(exp))
+    : [{ company: '', title: '', periodStart: '', periodEnd: '', period: '' }];
 
   if (ISO_DATE_PATTERN.test(data.birthDate)) {
     const autoAge = calculateAgeFromBirthDate(data.birthDate);
@@ -931,9 +942,11 @@ const ResumeBuilder = () => {
 
   const handleExperienceChange = (index, field, value) => {
     clearValidationErrors();
-    const newExperience = [...data.experience];
-    newExperience[index][field] = value;
-    setData(prev => ({ ...prev, experience: newExperience }));
+    setData((prev) => {
+      const newExperience = [...prev.experience];
+      newExperience[index] = { ...newExperience[index], [field]: value };
+      return { ...prev, experience: newExperience };
+    });
   };
 
   const addExperience = () => {
@@ -941,7 +954,7 @@ const ResumeBuilder = () => {
       clearValidationErrors();
       setData(prev => ({
         ...prev,
-        experience: [...prev.experience, { company: '', title: '', period: '' }]
+        experience: [...prev.experience, { company: '', title: '', periodStart: '', periodEnd: '', period: '' }]
       }));
     }
   };
@@ -1130,11 +1143,11 @@ const ResumeBuilder = () => {
             <td class="center bold">工作時間</td>
           </tr>
           ${[0, 1, 2, 3].map(i => {
-            const exp = formData.experience[i] || { company: '', title: '', period: '' };
+            const exp = formData.experience[i] || { company: '', title: '', periodStart: '', periodEnd: '', period: '' };
             return `<tr>
               <td class="center" height="28">${safeText(exp.company)}</td>
               <td colspan="2" class="center">${safeText(exp.title)}</td>
-              <td class="center">${safeText(exp.period)}</td>
+              <td class="center">${safeText(formatExperiencePeriod(exp))}</td>
             </tr>`;
           }).join('')}
           <tr>
@@ -1688,7 +1701,7 @@ const ResumeBuilder = () => {
               </div>
             ) : (
               <div ref={previewSectionRef} className="pb-28 sm:pb-0">
-                <div className="w-full max-w-[980px] mx-auto bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+                <div className="w-full max-w-[920px] mx-auto bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
                   <div className="px-3 sm:px-4 py-3 border-b border-gray-200 bg-white">
                     <div className="flex items-start justify-between gap-3">
                       <h3 className="text-base sm:text-lg font-bold text-gray-800">履歷檢視：{data.name || '未命名'}</h3>

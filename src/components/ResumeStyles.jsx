@@ -112,6 +112,11 @@ const previewStyles = `
     -webkit-overflow-scrolling: touch;
   }
   @media (min-width: 1024px) {
+    .preview-stage {
+      padding: 4px 0 10px;
+    }
+  }
+  @media (min-width: 1024px) {
     .resume-table-wrapper {
       overflow-x: hidden;
     }

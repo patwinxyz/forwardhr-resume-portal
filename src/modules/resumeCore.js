@@ -13,7 +13,7 @@ const initialData = {
   photoDataUrl: '',
   education: [{ school: '', major: '', gradDate: '' }],
   experience: [
-    { company: '', title: '', period: '' },
+    { company: '', title: '', periodStart: '', periodEnd: '', period: '' },
   ],
   languages: [],
   otherLanguage: '',
@@ -173,6 +173,43 @@ const formatYearMonthForWordCell = (dateString) => {
   if (!dateString) return '　　年　　月';
   const [year = '', month = ''] = dateString.split('-');
   return `${year} 年 ${month} 月`;
+};
+
+const splitExperiencePeriod = (value) => {
+  const text = String(value || '').trim();
+  if (!text) return { periodStart: '', periodEnd: '' };
+
+  const matched = text.match(/^(.*?)\s*(?:~|～|至|到|—|–|→)\s*(.*?)$/);
+  if (!matched) return { periodStart: '', periodEnd: '' };
+
+  return {
+    periodStart: String(matched[1] || '').trim(),
+    periodEnd: String(matched[2] || '').trim(),
+  };
+};
+
+const normalizeExperienceItem = (experience) => {
+  const raw = experience && typeof experience === 'object' ? experience : {};
+  const period = String(raw.period || '').trim();
+  const parsed = splitExperiencePeriod(period);
+  const periodStart = String(raw.periodStart ?? raw.startDate ?? parsed.periodStart ?? '').trim();
+  const periodEnd = String(raw.periodEnd ?? raw.endDate ?? parsed.periodEnd ?? '').trim();
+
+  return {
+    company: String(raw.company || '').trim(),
+    title: String(raw.title || '').trim(),
+    periodStart,
+    periodEnd,
+    period,
+  };
+};
+
+const formatExperiencePeriod = (experience) => {
+  const normalized = normalizeExperienceItem(experience);
+  if (normalized.periodStart && normalized.periodEnd) return `${normalized.periodStart} ~ ${normalized.periodEnd}`;
+  if (normalized.periodStart) return `${normalized.periodStart} ~`;
+  if (normalized.periodEnd) return `~ ${normalized.periodEnd}`;
+  return normalized.period;
 };
 
 const formatFillDateLine = (dateString) => {
@@ -619,11 +656,11 @@ const fillResumeTemplateXml = (xmlDocument, formData, options = {}) => {
   });
 
   for (let index = 0; index < 4; index += 1) {
-    const exp = formData.experience[index] || { company: '', title: '', period: '' };
+    const exp = normalizeExperienceItem(formData.experience[index] || {});
     const rowIndex = experienceDataStartRow + index;
     setByIndex(rowIndex, 1, exp.company);
     setByIndex(rowIndex, 2, exp.title);
-    setByIndex(rowIndex, 3, exp.period);
+    setByIndex(rowIndex, 3, formatExperiencePeriod(exp));
   }
 
   setByIndex(languageRow, 1, buildCheckboxLine(langOptions, formData.languages, formData.otherLanguage));
@@ -680,6 +717,8 @@ export {
   getPublicAssetPath,
   getEmbeddedLogoDataUrl,
   formatYearMonthForWordCell,
+  normalizeExperienceItem,
+  formatExperiencePeriod,
   calculateAgeFromBirthDate,
   getAdultMaxBirthDate,
   getEducationForOutput,

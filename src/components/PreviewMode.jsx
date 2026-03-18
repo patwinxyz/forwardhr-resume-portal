@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   formatYearMonthForWordCell,
+  formatExperiencePeriod,
   getPublicAssetPath,
   jobOptions,
   langOptions,
@@ -114,12 +115,12 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
               <td className="td-label">工作時間</td>
             </tr>
             {[...Array(4)].map((_, i) => {
-              const exp = data.experience[i] || { company: '', title: '', period: '' };
+              const exp = data.experience[i] || { company: '', title: '', periodStart: '', periodEnd: '', period: '' };
               return (
                 <tr key={`exp-${i}`}>
                   <td className="td-content h-[35px]">{exp.company}</td>
                   <td colSpan="2" className="td-content">{exp.title}</td>
-                  <td className="td-content">{exp.period}</td>
+                  <td className="td-content">{formatExperiencePeriod(exp)}</td>
                 </tr>
               );
             })}

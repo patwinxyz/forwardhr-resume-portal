@@ -371,8 +371,24 @@ const EditMode = ({
                 <input type="text" value={exp.title} onChange={(e) => onExperienceChange(index, 'title', e.target.value)} className="w-full px-3 py-2.5 rounded-md border border-gray-300 focus:ring-1 focus:ring-blue-500" />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1">工作時間 (起訖)</label>
-                <input type="text" value={exp.period} onChange={(e) => onExperienceChange(index, 'period', e.target.value)} className="w-full px-3 py-2.5 rounded-md border border-gray-300 focus:ring-1 focus:ring-blue-500" />
+                <label className="block text-xs font-medium text-gray-500 mb-1">工作起訖</label>
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="開始"
+                    value={exp.periodStart || ''}
+                    onChange={(e) => onExperienceChange(index, 'periodStart', e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-md border border-gray-300 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-400 text-sm">~</span>
+                  <input
+                    type="text"
+                    placeholder="結束"
+                    value={exp.periodEnd || ''}
+                    onChange={(e) => onExperienceChange(index, 'periodEnd', e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-md border border-gray-300 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
               </div>
               {data.experience.length > 1 && (
                 <button onClick={() => onRemoveExperience(index)} className="absolute top-2 right-2 bg-red-100 text-red-600 p-2 rounded-full hover:bg-red-200 transition-colors shadow-sm">

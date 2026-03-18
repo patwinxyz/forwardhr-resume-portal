@@ -9,12 +9,19 @@ const TurnstileWidget = forwardRef(function TurnstileWidget(
 ) {
   const containerRef = useRef(null);
   const widgetIdRef = useRef(null);
+  const onTokenChangeRef = useRef(onTokenChange);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onTokenChangeRef.current = onTokenChange;
+    onErrorRef.current = onError;
+  }, [onError, onTokenChange]);
 
   const reset = useCallback(() => {
-    onTokenChange?.('');
+    onTokenChangeRef.current?.('');
     if (typeof window === 'undefined' || !window.turnstile || widgetIdRef.current === null) return;
     window.turnstile.reset(widgetIdRef.current);
-  }, [onTokenChange]);
+  }, []);
 
   useImperativeHandle(
     ref,
@@ -31,14 +38,16 @@ const TurnstileWidget = forwardRef(function TurnstileWidget(
     widgetIdRef.current = window.turnstile.render(containerRef.current, {
       sitekey: siteKey,
       theme: 'light',
-      callback: (token) => onTokenChange?.(String(token || '')),
-      'expired-callback': () => onTokenChange?.(''),
-      'error-callback': () => {
-        onTokenChange?.('');
-        onError?.('機器人驗證載入失敗，請稍後再試。');
+      callback: (token) => onTokenChangeRef.current?.(String(token || '')),
+      'expired-callback': () => onTokenChangeRef.current?.(''),
+      'error-callback': (errorCode) => {
+        onTokenChangeRef.current?.('');
+        const codeText = String(errorCode || '').trim();
+        const detail = codeText ? `（${codeText}）` : '';
+        onErrorRef.current?.(`機器人驗證載入失敗，請稍後再試。${detail}`);
       },
     });
-  }, [onError, onTokenChange, siteKey]);
+  }, [siteKey]);
 
   useEffect(() => {
     if (!siteKey) return undefined;

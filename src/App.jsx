@@ -75,10 +75,10 @@ const getDefaultPreviewScale = () => {
   if (width < 480) return 0.46;
   if (width < 640) return 0.5;
   if (width < 1024) return 0.64;
-  if (height < 860) return 0.54;
-  if (height < 960) return 0.58;
-  if (width < 1440) return 0.61;
-  return 0.65;
+  if (height < 860) return 0.52;
+  if (height < 960) return 0.56;
+  if (width < 1440) return 0.59;
+  return 0.62;
 };
 const BASIC_REQUIRED_FIELD_KEYS = new Set(['name', 'gender', 'birthDate', 'maritalStatus', 'phone', 'email', 'address']);
 const isStepField = (stepIndex, fieldKey) => {
@@ -1701,7 +1701,7 @@ const ResumeBuilder = () => {
               </div>
             ) : (
               <div ref={previewSectionRef} className="pb-28 sm:pb-0">
-                <div className="w-full max-w-[860px] mx-auto bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+                <div className="w-full max-w-[820px] mx-auto bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
                   <div className="px-3 sm:px-4 py-3 border-b border-gray-200 bg-white">
                     <div className="flex items-start gap-3">
                       <h3 className="text-base sm:text-lg font-bold text-gray-800">履歷檢視：{data.name || '未命名'}</h3>

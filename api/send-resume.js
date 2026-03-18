@@ -5,6 +5,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RATE_LIMIT_COLLECTION = 'apiRateLimitDaily';
 const DEFAULT_DAILY_LIMIT_PER_UID = 6;
 const DEFAULT_DAILY_LIMIT_PER_IP = 24;
+const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
 const sanitize = (value) =>
   String(value || '')
@@ -88,6 +89,27 @@ const getClientIp = (req) => {
   const candidate = forwarded || realIp || cfIp || socketIp || '';
   if (!candidate) return '';
   return candidate.replace(/[^0-9a-fA-F:.,]/g, '').slice(0, 64);
+};
+
+const verifyTurnstileToken = async ({ secretKey, token, remoteIp }) => {
+  const payload = new URLSearchParams();
+  payload.set('secret', secretKey);
+  payload.set('response', token);
+  if (remoteIp) payload.set('remoteip', remoteIp);
+
+  const verifyResponse = await fetch(TURNSTILE_VERIFY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: payload.toString(),
+  });
+
+  if (!verifyResponse.ok) {
+    throw new Error(`Turnstile verify failed (${verifyResponse.status})`);
+  }
+
+  return verifyResponse.json();
 };
 
 const consumeDailyQuota = async ({ db, scope, identityKey, identityValue, dateKey, maxAllowed }) => {
@@ -187,11 +209,66 @@ export default async function handler(req, res) {
     });
   }
 
+  let body = req.body || {};
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch (error) {
+      return res.status(400).json({ ok: false, message: 'Invalid JSON body' });
+    }
+  }
+
+  const {
+    attachmentBase64,
+    attachmentFilename,
+    attachmentMimeType,
+    applicantName,
+    applicantEmail,
+    applicantPhone,
+    submitterEmail,
+    submitterName,
+    fillDate,
+    isResubmission,
+    lastSubmittedAt,
+    turnstileToken,
+  } = body;
+
+  const requesterIp = getClientIp(req);
+  const turnstileSecretKey = String(process.env.TURNSTILE_SECRET_KEY || '').trim();
+  const safeTurnstileToken = String(turnstileToken || '').trim();
+
+  if (turnstileSecretKey) {
+    if (!safeTurnstileToken) {
+      return res.status(400).json({ ok: false, message: 'Missing turnstile token' });
+    }
+    try {
+      const verifyResult = await verifyTurnstileToken({
+        secretKey: turnstileSecretKey,
+        token: safeTurnstileToken,
+        remoteIp: requesterIp,
+      });
+      if (!verifyResult?.success) {
+        const errorCodes = Array.isArray(verifyResult?.['error-codes']) ? verifyResult['error-codes'] : [];
+        return res.status(403).json({
+          ok: false,
+          message: '機器人驗證失敗，請重新驗證後再送出。',
+          details: errorCodes,
+        });
+      }
+    } catch (error) {
+      console.error('Turnstile verify failed:', error);
+      return res.status(503).json({
+        ok: false,
+        message: '機器人驗證服務暫時不可用，請稍後再試。',
+      });
+    }
+  }
+
   const uidDailyLimit = toPositiveInt(process.env.SEND_RESUME_DAILY_LIMIT_PER_UID, DEFAULT_DAILY_LIMIT_PER_UID);
   const ipDailyLimit = toPositiveInt(process.env.SEND_RESUME_DAILY_LIMIT_PER_IP, DEFAULT_DAILY_LIMIT_PER_IP);
   const dateKey = getTaipeiDateKey();
   const requesterUid = sanitize(verifiedUser?.uid || '');
-  const requesterIp = getClientIp(req);
+
 
   try {
     const db = getFirestoreDb();
@@ -238,29 +315,6 @@ export default async function handler(req, res) {
       message: '寄送上限服務暫時無法使用，請稍後再試。',
     });
   }
-
-  let body = req.body || {};
-  if (typeof body === 'string') {
-    try {
-      body = JSON.parse(body);
-    } catch (error) {
-      return res.status(400).json({ ok: false, message: 'Invalid JSON body' });
-    }
-  }
-
-  const {
-    attachmentBase64,
-    attachmentFilename,
-    attachmentMimeType,
-    applicantName,
-    applicantEmail,
-    applicantPhone,
-    submitterEmail,
-    submitterName,
-    fillDate,
-    isResubmission,
-    lastSubmittedAt,
-  } = body;
 
   if (!attachmentBase64) {
     return res.status(400).json({ ok: false, message: 'Missing attachmentBase64' });

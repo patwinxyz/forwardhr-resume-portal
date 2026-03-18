@@ -8,6 +8,7 @@ import NoticeBanner from './components/NoticeBanner';
 import PreviewMode from './components/PreviewMode';
 import ResumeStyles from './components/ResumeStyles';
 import TopNav from './components/TopNav';
+import TurnstileWidget from './components/TurnstileWidget';
 import {
   isFirebaseAuthConfigured,
   loginWithGoogle,
@@ -269,8 +270,12 @@ const ResumeBuilder = () => {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [previewScale, setPreviewScale] = useState(() => getDefaultPreviewScale());
   const [userSubmitState, setUserSubmitState] = useState(null);
+  const [turnstileToken, setTurnstileToken] = useState('');
   const hasBootstrappedUserResumeRef = useRef(false);
   const previewSectionRef = useRef(null);
+  const turnstileWidgetRef = useRef(null);
+  const turnstileSiteKey = String(import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
+  const isTurnstileEnabled = Boolean(turnstileSiteKey);
   const adminEmails = parseAdminEmails();
   const authEmail = String(authUser?.email || '').trim().toLowerCase();
   const isAdmin = authEmail ? adminEmails.includes(authEmail) : false;
@@ -825,6 +830,8 @@ const ResumeBuilder = () => {
 
   const goPreview = () => {
     if (!ensureValidBeforeAction('預覽')) return;
+    setTurnstileToken('');
+    turnstileWidgetRef.current?.reset?.();
     setPreviewScale(getDefaultPreviewScale());
     setIsPreviewMode(true);
     previewSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -832,6 +839,8 @@ const ResumeBuilder = () => {
 
   const goBackToEdit = () => {
     setUserSubmitState(null);
+    setTurnstileToken('');
+    turnstileWidgetRef.current?.reset?.();
     setIsPreviewMode(false);
     setTimeout(() => {
       editSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1348,6 +1357,10 @@ const ResumeBuilder = () => {
   const sendResumeByEmail = async () => {
     if (isSendingEmail) return;
     if (!ensureValidBeforeAction('送出寄送')) return;
+    if (isTurnstileEnabled && !turnstileToken) {
+      showNotice('請先完成機器人驗證，再送出履歷。', 'error');
+      return;
+    }
 
     if (!isFirebaseAuthConfigured()) {
       showNotice('尚未設定 Firebase 登入，無法送出寄送。', 'error');
@@ -1421,6 +1434,7 @@ const ResumeBuilder = () => {
           submitterName: authUser.displayName || '',
           isResubmission,
           lastSubmittedAt: savedRecord?.lastSubmittedAt || '',
+          turnstileToken: isTurnstileEnabled ? turnstileToken : '',
         }),
       });
 
@@ -1462,6 +1476,10 @@ const ResumeBuilder = () => {
       const errorMessage = error instanceof Error ? error.message : '請稍後重試。';
       showNotice(`送出寄送失敗：${errorMessage}`, 'error');
     } finally {
+      if (isTurnstileEnabled) {
+        setTurnstileToken('');
+        turnstileWidgetRef.current?.reset?.();
+      }
       setIsSendingEmail(false);
     }
   };
@@ -1712,6 +1730,17 @@ const ResumeBuilder = () => {
                   </div>
                   <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 px-3 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] backdrop-blur sm:static sm:border-t sm:bg-white sm:px-4 sm:py-4">
                     <div className="w-full max-w-[1200px] mx-auto flex flex-col sm:flex-row gap-2 sm:gap-3 sm:justify-end">
+                      {isTurnstileEnabled && (
+                        <div className="w-full sm:w-auto flex justify-center sm:justify-end">
+                          <TurnstileWidget
+                            ref={turnstileWidgetRef}
+                            siteKey={turnstileSiteKey}
+                            onTokenChange={setTurnstileToken}
+                            onError={(message) => showNotice(message, 'error')}
+                            className="inline-flex"
+                          />
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={goBackToEdit}

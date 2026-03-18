@@ -50,6 +50,7 @@ copy .env.example .env
 - `VITE_ADMIN_EMAILS`：以逗號分隔管理員 email，例如：
   - `VITE_ADMIN_EMAILS=patwinxyz@gmail.com,admin@forwardhrm.com`
 - 白名單登入後會進入「管理員 CRUD 模式」。
+- `VITE_TURNSTILE_SITE_KEY`：Cloudflare Turnstile 前端 Site Key（送出履歷前的人機驗證）。
 
 管理員白名單設定（後端）：
 - `ADMIN_EMAILS`：與 `VITE_ADMIN_EMAILS` 使用相同清單。
@@ -89,12 +90,14 @@ npm run dev
 
 1. 到 Resend 建立 API Key
 2. 在 Resend `Domains` 驗證 `forwardhrm.com`（建議用 Cloudflare 自動寫入 DNS）
-3. 設定寄件者（`MAIL_FROM`）
+3. 在 Cloudflare Turnstile 建立 widget，Hostnames 加入 `hr.forwardhrm.com`
+4. 設定 `TURNSTILE_SECRET_KEY`（Turnstile Secret Key，後端驗證用）
+5. 設定寄件者（`MAIL_FROM`）
 - 可用格式 A：`no-reply@forwardhrm.com`
 - 可用格式 B：`Forward HR <no-reply@forwardhrm.com>`
-4. （選填）設定寄件名稱 `MAIL_FROM_NAME=Forward HR`（當 `MAIL_FROM` 是純 email 時會自動套用）
-5. 設定收件者（`MAIL_TO`，可多個用逗號），例如：`hr@forwardhrm.com,manager@forwardhrm.com`
-6. （建議）設定每日硬上限（以 `Asia/Taipei` 日期計算）
+6. （選填）設定寄件名稱 `MAIL_FROM_NAME=Forward HR`（當 `MAIL_FROM` 是純 email 時會自動套用）
+7. 設定收件者（`MAIL_TO`，可多個用逗號），例如：`hr@forwardhrm.com,manager@forwardhrm.com`
+8. （建議）設定每日硬上限（以 `Asia/Taipei` 日期計算）
 - `SEND_RESUME_DAILY_LIMIT_PER_UID=6`（每個登入帳號每天最多寄送次數）
 - `SEND_RESUME_DAILY_LIMIT_PER_IP=24`（每個來源 IP 每天最多寄送次數）
 
@@ -108,8 +111,10 @@ npm run dev
 - `VITE_FIREBASE_PROJECT_ID`
 - `VITE_FIREBASE_APP_ID`
 - `VITE_ADMIN_EMAILS`（管理員 email 白名單，逗號分隔）
+- `VITE_TURNSTILE_SITE_KEY`（Cloudflare Turnstile Site Key）
 - `ADMIN_EMAILS`（後端管理員白名單，建議與 `VITE_ADMIN_EMAILS` 相同）
 - `RESEND_API_KEY`
+- `TURNSTILE_SECRET_KEY`（Cloudflare Turnstile Secret Key）
 - `MAIL_FROM`
 - `MAIL_FROM_NAME`（選填）
 - `MAIL_TO`
@@ -127,6 +132,6 @@ npm run dev
 
 1. 使用者先 Google 登入
 2. 填寫履歷資料
-3. 點「送出寄送」
-4. 系統會先自動儲存履歷（含照片路徑），再產生 Word 檔並寄到 `MAIL_TO`
-5. 模板失敗時會自動改用 `.doc` 相容格式寄送
+3. 預覽頁完成 Turnstile 人機驗證
+4. 點「送出寄送」
+5. 系統會先自動儲存履歷（含照片路徑），再產生 Word 檔並寄到 `MAIL_TO`

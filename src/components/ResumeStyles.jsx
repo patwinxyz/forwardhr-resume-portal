@@ -111,6 +111,11 @@ const previewStyles = `
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+  @media (min-width: 1024px) {
+    .resume-table-wrapper {
+      overflow-x: hidden;
+    }
+  }
   .resume-table td {
     border: 1px solid #000;
     padding: 8px 5px;

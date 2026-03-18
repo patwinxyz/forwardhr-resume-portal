@@ -69,13 +69,12 @@ const formatIsoMonthInput = (rawValue) => {
 const getDefaultPreviewScale = () => {
   if (typeof window === 'undefined') return 0.8;
   const width = window.innerWidth || 1024;
-  if (width < 480) return 0.56;
-  if (width < 640) return 0.62;
-  if (width < 1024) return 0.72;
-  return 0.8;
+  if (width < 480) return 0.46;
+  if (width < 640) return 0.5;
+  if (width < 1024) return 0.64;
+  if (width < 1440) return 0.74;
+  return 0.78;
 };
-
-const clampPreviewScale = (value) => Math.min(1, Math.max(0.55, Number(value) || 0.8));
 const BASIC_REQUIRED_FIELD_KEYS = new Set(['name', 'gender', 'birthDate', 'maritalStatus', 'phone', 'email', 'address']);
 const isStepField = (stepIndex, fieldKey) => {
   const safeField = String(fieldKey || '');
@@ -1689,38 +1688,14 @@ const ResumeBuilder = () => {
               </div>
             ) : (
               <div ref={previewSectionRef} className="pb-28 sm:pb-0">
-                <div className="w-full max-w-[1200px] mx-auto bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+                <div className="w-full max-w-[980px] mx-auto bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
                   <div className="px-3 sm:px-4 py-3 border-b border-gray-200 bg-white">
                     <div className="flex items-start justify-between gap-3">
                       <h3 className="text-base sm:text-lg font-bold text-gray-800">履歷檢視：{data.name || '未命名'}</h3>
-                      <span className="text-xs text-gray-500 whitespace-nowrap mt-1">左右滑動可檢視完整欄位</span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewScale((prev) => clampPreviewScale(prev - 0.05))}
-                        className="px-3 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
-                      >
-                        縮小
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewScale(getDefaultPreviewScale())}
-                        className="px-3 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
-                      >
-                        適中
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewScale((prev) => clampPreviewScale(prev + 0.05))}
-                        className="px-3 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
-                      >
-                        放大
-                      </button>
-                      <span className="text-xs text-gray-500 ml-1">縮放 {Math.round(previewScale * 100)}%</span>
+                      <span className="text-xs text-gray-500 whitespace-nowrap mt-1">桌機版固定預覽框</span>
                     </div>
                   </div>
-                  <div className="max-h-[calc(100vh-250px)] sm:max-h-[72vh] overflow-auto p-2 sm:p-4 bg-slate-100">
+                  <div className="max-h-[calc(100vh-250px)] overflow-auto p-2 sm:p-4 bg-slate-100 lg:max-h-none lg:overflow-hidden">
                     <PreviewMode
                       data={userPreviewData}
                       educationForOutput={educationForPreview}

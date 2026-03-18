@@ -73,11 +73,13 @@ const EditMode = ({
   };
 
   return (
-    <div className={`resume-edit-form ${wizardMode ? 'pb-28 sm:pb-0' : ''} ${compactMode ? 'md:[zoom:0.90]' : ''} space-y-4 sm:space-y-6`}>
+    <div
+      className={`resume-edit-form ${wizardMode ? 'pb-28 sm:pb-0 lg:h-[calc(100vh-190px)] lg:min-h-[700px] lg:max-h-[860px] lg:flex lg:flex-col' : ''} ${compactMode ? 'md:[zoom:0.90]' : ''} space-y-4 sm:space-y-6`}
+    >
       <div ref={stepTopRef} className="scroll-mt-24" />
 
-      <div className={wizardMode ? 'bg-white border border-gray-200 rounded-xl p-3 sm:p-4 md:p-5' : ''}>
-      <div className={wizardMode ? 'min-h-[440px] sm:min-h-[520px] md:min-h-[640px] space-y-5 sm:space-y-6' : 'space-y-5 sm:space-y-6'}>
+      <div className={wizardMode ? 'bg-white border border-gray-200 rounded-xl p-3 sm:p-4 md:p-5 lg:flex-1 lg:min-h-0 lg:overflow-hidden' : ''}>
+      <div className={wizardMode ? 'min-h-[440px] sm:min-h-[520px] md:min-h-[640px] space-y-5 sm:space-y-6 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:pr-1' : 'space-y-5 sm:space-y-6'}>
       {isStepVisible(0) && (
       <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
         <h2 className="text-lg sm:text-xl font-bold text-gray-800 border-b border-gray-200 pb-3 mb-4 sm:mb-6 flex items-center gap-2">
@@ -423,13 +425,13 @@ const EditMode = ({
       </div>
 
       {wizardMode ? (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] backdrop-blur sm:static sm:inset-auto sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0">
-          <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 min-h-[64px]">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-white/95 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] backdrop-blur sm:static sm:inset-auto sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0 lg:mt-2">
+          <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 sm:gap-3 min-h-[64px]">
           <button
             type="button"
             onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
             disabled={currentStep === 0}
-            className={`px-4 sm:px-5 py-2.5 rounded-lg font-medium border flex-1 sm:flex-none ${
+            className={`px-4 sm:px-5 py-2.5 rounded-lg font-medium border flex-1 sm:flex-none sm:w-[160px] lg:w-[180px] text-center ${
               currentStep === 0
                 ? 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50'
                 : 'border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -441,7 +443,7 @@ const EditMode = ({
             <button
               type="button"
               onClick={goNextStep}
-              className="bg-blue-600 text-white px-4 sm:px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 flex-1 sm:flex-none"
+              className="bg-blue-600 text-white px-4 sm:px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 flex-1 sm:flex-none sm:w-[160px] lg:w-[180px] text-center"
             >
               下一步
             </button>
@@ -449,7 +451,7 @@ const EditMode = ({
             showPreviewAction && (
               <button
                 onClick={onPreview}
-                className="bg-blue-600 text-white flex-1 sm:flex-none justify-center px-4 sm:px-6 py-2.5 rounded-lg font-medium text-sm sm:text-base hover:bg-blue-700 shadow-md inline-flex items-center gap-2"
+                className="bg-blue-600 text-white flex-1 sm:flex-none sm:w-[160px] lg:w-[180px] justify-center px-4 sm:px-6 py-2.5 rounded-lg font-medium text-sm sm:text-base hover:bg-blue-700 shadow-md inline-flex items-center gap-2"
               >
                 完成填寫 <FileText className="w-4 h-4" />
               </button>

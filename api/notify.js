@@ -26,22 +26,43 @@ const parseBody = (req) => {
   return req.body;
 };
 
-const sendTelegramMessage = async (token, text) => {
-  const url = `${TELEGRAM_API}/bot${token}/sendMessage`;
-  const response = await fetch(url, {
+const sendTelegramDocument = async (token, text, fileBuffer, filename, mimeType) => {
+  const formData = new FormData();
+  formData.append('chat_id', TELEGRAM_CHAT_ID);
+  formData.append('caption', text);
+  formData.append('parse_mode', 'HTML');
+  formData.append('document', new Blob([fileBuffer], { type: mimeType }), filename);
+
+  const response = await fetch(`${TELEGRAM_API}/bot${token}/sendDocument`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text,
-      parse_mode: 'HTML',
-    }),
+    body: formData,
   });
 
   if (!response.ok) {
     const body = await response.text().catch(() => '');
     throw new Error(`Telegram API error ${response.status}: ${body.slice(0, 200)}`);
   }
+};
+
+const sendTelegramMessage = async (token, text) => {
+  const response = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'HTML' }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`Telegram API error ${response.status}: ${body.slice(0, 200)}`);
+  }
+};
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '12mb',
+    },
+  },
 };
 
 export default async function handler(req, res) {
@@ -78,18 +99,27 @@ export default async function handler(req, res) {
   const applicantPhone = sanitize(body?.applicantPhone);
   const fillDate = sanitize(body?.fillDate);
   const isResubmission = Boolean(body?.isResubmission);
+  const attachmentBase64 = String(body?.attachmentBase64 || '').trim();
+  const attachmentFilename = sanitize(body?.attachmentFilename) || 'resume.docx';
+  const attachmentMimeType = sanitize(body?.attachmentMimeType) ||
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
   const label = isResubmission ? '【重新送出】' : '【新履歷】';
-  const lines = [
+  const caption = [
     `${label} 收到求職者履歷`,
     `姓名：${applicantName || '（未填）'}`,
     `電話：${applicantPhone || '（未填）'}`,
     `Email：${applicantEmail || '（未填）'}`,
     `填寫日期：${fillDate || '（未填）'}`,
-  ];
+  ].join('\n');
 
   try {
-    await sendTelegramMessage(token, lines.join('\n'));
+    if (attachmentBase64) {
+      const fileBuffer = Buffer.from(attachmentBase64, 'base64');
+      await sendTelegramDocument(token, caption, fileBuffer, attachmentFilename, attachmentMimeType);
+    } else {
+      await sendTelegramMessage(token, caption);
+    }
     return res.status(200).json({ ok: true });
   } catch (error) {
     console.error('Telegram notify failed:', error);

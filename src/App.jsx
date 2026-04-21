@@ -1498,6 +1498,9 @@ const ResumeBuilder = () => {
             applicantPhone: renderData.phone,
             fillDate: renderData.fillDate,
             isResubmission,
+            attachmentBase64,
+            attachmentFilename,
+            attachmentMimeType,
           }),
         });
       } catch (notifyError) {

@@ -1,6 +1,6 @@
 import { verifyFirebaseIdToken } from './_lib/firebaseAdmin.js';
 
-const TELEGRAM_CHAT_ID = 'REDACTED';
+const TELEGRAM_CHAT_ID = String(process.env.TELEGRAM_CHAT_ID || '').trim();
 const TELEGRAM_API = 'https://api.telegram.org';
 
 const sanitize = (value) =>
@@ -74,6 +74,9 @@ export default async function handler(req, res) {
   const token = String(process.env.TELEGRAM_TOKEN || '').trim();
   if (!token) {
     return res.status(500).json({ ok: false, message: 'TELEGRAM_TOKEN 未設定' });
+  }
+  if (!TELEGRAM_CHAT_ID) {
+    return res.status(500).json({ ok: false, message: 'TELEGRAM_CHAT_ID 未設定' });
   }
 
   const idToken = getBearerToken(req);

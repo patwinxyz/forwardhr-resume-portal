@@ -1484,6 +1484,26 @@ const ResumeBuilder = () => {
         console.error('Mark submitted failed:', markError);
       }
 
+      try {
+        const idToken = typeof authUser.getIdToken === 'function' ? await authUser.getIdToken() : '';
+        await fetch(getApiEndpoint('/api/notify'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+          },
+          body: JSON.stringify({
+            applicantName: renderData.name,
+            applicantEmail: renderData.email,
+            applicantPhone: renderData.phone,
+            fillDate: renderData.fillDate,
+            isResubmission,
+          }),
+        });
+      } catch (notifyError) {
+        console.warn('Telegram notify failed (non-blocking):', notifyError);
+      }
+
       const finalRecordData = submittedRecord?.formData
         ? normalizeResumeData(submittedRecord.formData)
         : latestData;

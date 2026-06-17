@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>灃禾人才招募 FORWARD GROUP｜餐飲人力媒合</title>
+<meta name="description" content="灃禾人才招募 FORWARD GROUP — 專注餐飲業外場、內場、門市正職媒合，通過 RBA 黃金級認證，為人與企業搭起最得體的橋。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --forest:#0f352b; --forest-2:#185240; --forest-3:#0b261f;
+    --cream:#fbf8ef; --paper:#fffdf8;
+    --gold:#e2b65d; --gold-deep:#a86d2f;
+    --blue:#486a78; --ink:#18302b; --muted:#738078; --danger:#a94a3d;
+    --line:rgba(28,73,61,.14);
+    --shadow:0 18px 46px rgba(26,48,42,.1);
+    --shadow-sm:0 8px 22px rgba(26,48,42,.07);
+    --maxw:1180px;
+    --ease:cubic-bezier(.22,.61,.36,1);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--cream); color:var(--ink);
+    font-family:"Noto Sans TC",system-ui,sans-serif; font-weight:400;
+    line-height:1.75; -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  h1,h2,h3,h4,.serif{font-family:"Noto Serif TC",serif;}
+  a{color:inherit; text-decoration:none;}
+  img{max-width:100%; display:block;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px;}
+  .eyebrow{
+    font-size:.78rem; letter-spacing:.34em; text-transform:uppercase;
+    color:var(--gold-deep); font-weight:500; margin:0 0 14px;
+    display:inline-flex; align-items:center; gap:12px;
+  }
+  .eyebrow::before{content:""; width:34px; height:1px; background:var(--gold-deep); opacity:.6;}
+  .btn{
+    display:inline-flex; align-items:center; gap:10px; cursor:pointer;
+    font-family:"Noto Sans TC",sans-serif; font-size:.96rem; font-weight:500;
+    padding:14px 30px; border-radius:999px; border:1px solid transparent;
+    transition:transform .4s var(--ease), box-shadow .4s var(--ease), background .3s, color .3s;
+  }
+  .btn-primary{background:var(--forest); color:var(--paper); box-shadow:0 12px 26px rgba(15,53,43,.28);}
+  .btn-primary:hover{transform:translateY(-3px); box-shadow:0 18px 34px rgba(15,53,43,.34);}
+  .btn-ghost{background:transparent; color:var(--forest); border-color:var(--line);}
+  .btn-ghost:hover{border-color:var(--gold); color:var(--gold-deep); transform:translateY(-3px);}
+  .btn-gold{background:var(--gold); color:var(--forest-3); box-shadow:0 12px 26px rgba(226,182,93,.36);}
+  .btn-gold:hover{transform:translateY(-3px); box-shadow:0 18px 34px rgba(226,182,93,.46);}
+
+  /* ===== Header ===== */
+  header.site{
+    position:fixed; inset:0 0 auto 0; z-index:100; height:66px;
+    display:flex; align-items:center;
+    background:rgba(251,248,239,.72); backdrop-filter:blur(14px) saturate(1.4);
+    -webkit-backdrop-filter:blur(14px) saturate(1.4);
+    border-bottom:1px solid transparent;
+    transition:height .4s var(--ease), box-shadow .4s var(--ease), background .4s var(--ease), border-color .4s;
+  }
+  header.site.shrink{height:58px; box-shadow:0 6px 22px rgba(26,48,42,.09); background:rgba(251,248,239,.92); border-bottom-color:var(--line);}
+  .nav{display:flex; align-items:center; justify-content:space-between; width:100%; max-width:var(--maxw); margin:0 auto; padding:0 24px;}
+  .brand{display:flex; align-items:center; gap:12px;}
+  .brand img{height:46px; width:auto; transition:height .4s var(--ease);}
+  header.site.shrink .brand img{height:40px;}
+  .brand .bname{display:flex; flex-direction:column; line-height:1.15;}
+  .brand .bname b{font-family:"Noto Serif TC",serif; font-size:1.06rem; font-weight:600; color:var(--forest); letter-spacing:.06em;}
+  .brand .bname span{font-size:.62rem; letter-spacing:.26em; color:var(--muted); text-transform:uppercase;}
+  .menu{display:flex; align-items:center; gap:6px;}
+  .menu a.navlink{
+    position:relative; padding:8px 14px; font-size:.94rem; color:var(--forest); font-weight:500;
+  }
+  .menu a.navlink::after{
+    content:""; position:absolute; left:14px; right:14px; bottom:2px; height:1.5px;
+    background:var(--gold); transform:scaleX(0); transform-origin:left; transition:transform .4s var(--ease);
+  }
+  .menu a.navlink:hover::after, .menu a.navlink.active::after{transform:scaleX(1);}
+  .menu .btn{margin-left:12px; padding:10px 22px;}
+  .burger{display:none; flex-direction:column; gap:5px; background:none; border:0; cursor:pointer; padding:8px;}
+  .burger span{width:24px; height:2px; background:var(--forest); transition:.3s;}
+
+  /* ===== Hero ===== */
+  .hero{position:relative; padding:140px 0 96px; overflow:hidden;}
+  .hero::before{
+    content:""; position:absolute; inset:0; z-index:0;
+    background:
+      radial-gradient(60% 80% at 82% 12%, rgba(226,182,93,.16), transparent 60%),
+      radial-gradient(50% 60% at 8% 90%, rgba(24,82,64,.10), transparent 60%);
+  }
+  .hero .wrap{position:relative; z-index:1; display:grid; grid-template-columns:1.15fr .85fr; gap:60px; align-items:center;}
+  .hero h1{
+    font-size:clamp(2.4rem,5vw,4rem); line-height:1.18; font-weight:600; color:var(--forest);
+    margin:0 0 22px; letter-spacing:.01em;
+  }
+  .hero h1 .em{position:relative; color:var(--forest-2);}
+  .hero h1 .em::after{
+    content:""; position:absolute; left:0; right:0; bottom:.08em; height:.36em;
+    background:linear-gradient(transparent 55%, rgba(226,182,93,.42) 0); z-index:-1;
+  }
+  .hero p.lead{font-size:1.1rem; color:var(--muted); max-width:32em; margin:0 0 32px;}
+  .hero-cta{display:flex; gap:14px; flex-wrap:wrap; align-items:center;}
+  .hero-meta{margin-top:34px; display:flex; gap:30px; flex-wrap:wrap;}
+  .hero-meta .m b{font-family:"Noto Serif TC",serif; font-size:1.5rem; color:var(--forest); display:block;}
+  .hero-meta .m span{font-size:.82rem; color:var(--muted);}
+  .hero-visual{position:relative;}
+  .hero-card{
+    background:var(--paper); border:1px solid var(--line); border-radius:24px; padding:30px;
+    box-shadow:var(--shadow); position:relative;
+  }
+  .hero-card .logo-big{display:flex; flex-direction:column; align-items:center; gap:14px; padding:12px 0 22px; border-bottom:1px dashed var(--line);}
+  .hero-card .logo-big img{height:118px; width:auto;}
+  .hero-card .cert{
+    margin-top:18px; display:flex; align-items:center; gap:14px; padding:14px 16px;
+    background:linear-gradient(120deg, rgba(226,182,93,.12), rgba(24,82,64,.06));
+    border-radius:14px; border:1px solid var(--line);
+  }
+  .hero-card .cert .seal{
+    flex:0 0 auto; width:44px; height:44px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--gold), var(--gold-deep));
+    display:grid; place-items:center; color:var(--paper); font-family:"Noto Serif TC",serif; font-weight:700;
+    box-shadow:inset 0 0 0 3px rgba(255,255,255,.35);
+  }
+  .hero-card .cert small{display:block; color:var(--muted); font-size:.74rem; letter-spacing:.05em;}
+  .hero-card .cert strong{font-family:"Noto Serif TC",serif; color:var(--forest); font-size:1rem;}
+  .hero-float{
+    position:absolute; left:-26px; bottom:-26px; background:var(--forest); color:var(--paper);
+    border-radius:16px; padding:16px 20px; box-shadow:var(--shadow); display:flex; align-items:center; gap:12px;
+  }
+  .hero-float b{font-family:"Noto Serif TC",serif; font-size:1.2rem;}
+  .hero-float span{font-size:.78rem; opacity:.78;}
+
+  /* ===== section shells ===== */
+  section{position:relative;}
+  .sec-head{max-width:640px; margin-bottom:48px;}
+  .sec-head h2{font-size:clamp(1.7rem,3.2vw,2.5rem); color:var(--forest); margin:0 0 14px; font-weight:600; line-height:1.3;}
+  .sec-head p{color:var(--muted); margin:0; font-size:1.02rem;}
+  .pad{padding:96px 0;}
+  .center{margin-left:auto; margin-right:auto; text-align:center;}
+  .center .eyebrow{justify-content:center;}
+
+  /* ===== Value cards ===== */
+  .values{background:var(--paper); border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
+  .value-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:24px;}
+  .vcard{
+    background:var(--cream); border:1px solid var(--line); border-radius:18px; padding:30px 26px;
+    transition:transform .5s var(--ease), box-shadow .5s var(--ease), border-color .5s;
+  }
+  .vcard:hover{transform:translateY(-8px); box-shadow:var(--shadow); border-color:rgba(226,182,93,.6);}
+  .vcard .ic{
+    width:52px; height:52px; border-radius:14px; display:grid; place-items:center; margin-bottom:18px;
+    background:linear-gradient(135deg, var(--forest), var(--forest-2)); color:var(--gold);
+  }
+  .vcard .ic svg{width:26px; height:26px;}
+  .vcard h3{font-size:1.2rem; color:var(--forest); margin:0 0 10px; font-weight:600;}
+  .vcard p{margin:0; font-size:.92rem; color:var(--muted); line-height:1.7;}
+
+  /* ===== Stats + marquee ===== */
+  .stats{background:linear-gradient(160deg, var(--forest), var(--forest-3)); color:var(--paper);}
+  .stat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:24px; text-align:center;}
+  .stat .num{font-family:"Noto Serif TC",serif; font-size:clamp(2.4rem,5vw,3.4rem); font-weight:600; color:var(--gold); line-height:1;}
+  .stat .num .suf{font-size:1.4rem; color:var(--paper); margin-left:2px;}
+  .stat .lab{margin-top:10px; font-size:.92rem; opacity:.82;}
+  .marquee-wrap{margin-top:64px; border-top:1px solid rgba(255,255,255,.14); padding-top:36px;}
+  .marquee-wrap .mtitle{text-align:center; font-size:.78rem; letter-spacing:.3em; text-transform:uppercase; opacity:.6; margin-bottom:24px;}
+  .marquee{overflow:hidden; -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent); mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);}
+  .marquee .track{display:flex; gap:54px; width:max-content; animation:scrollx 30s linear infinite;}
+  .marquee:hover .track{animation-play-state:paused;}
+  .marquee .item{display:flex; align-items:center; gap:10px; font-family:"Noto Serif TC",serif; font-size:1.15rem; opacity:.78; white-space:nowrap;}
+  .marquee .item .dot{width:8px; height:8px; border-radius:50%; background:var(--gold);}
+  @keyframes scrollx{from{transform:translateX(0);} to{transform:translateX(-50%);}}
+
+  /* ===== Jobs ===== */
+  .search-bar{
+    background:var(--paper); border:1px solid var(--line); border-radius:20px; padding:22px;
+    box-shadow:var(--shadow-sm); display:grid; grid-template-columns:1.6fr 1fr 1fr auto; gap:14px; align-items:end;
+    margin-bottom:38px;
+  }
+  .field label{display:block; font-size:.78rem; color:var(--muted); margin-bottom:7px; letter-spacing:.04em;}
+  .field input, .field select{
+    width:100%; font-family:inherit; font-size:.96rem; color:var(--ink);
+    padding:12px 14px; border:1px solid var(--line); border-radius:11px; background:var(--cream);
+    transition:border-color .3s, box-shadow .3s; appearance:none;
+  }
+  .field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23738078' d='M6 8 0 0h12z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; padding-right:34px;}
+  .field input:focus, .field select:focus{outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(226,182,93,.18);}
+  .search-bar .btn{height:46px; justify-content:center;}
+  .result-meta{display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:10px;}
+  .result-meta .count{font-size:.95rem; color:var(--muted);}
+  .result-meta .count b{font-family:"Noto Serif TC",serif; color:var(--forest); font-size:1.2rem;}
+  .job-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:24px;}
+  .job{
+    background:var(--paper); border:1px solid var(--line); border-radius:18px; overflow:hidden;
+    display:flex; flex-direction:column; transition:transform .5s var(--ease), box-shadow .5s var(--ease), border-color .5s;
+  }
+  .job:hover{transform:translateY(-7px); box-shadow:var(--shadow); border-color:rgba(226,182,93,.6);}
+  .job .thumb{
+    height:118px; position:relative; display:grid; place-items:center;
+    background:linear-gradient(135deg, var(--forest), var(--forest-2));
+  }
+  .job .thumb .ho{font-family:"Noto Serif TC",serif; font-size:3rem; color:rgba(226,182,93,.9); font-weight:600;}
+  .job .thumb .tag{position:absolute; top:12px; left:12px; background:var(--gold); color:var(--forest-3); font-size:.72rem; font-weight:500; padding:4px 12px; border-radius:999px;}
+  .job .body{padding:22px; display:flex; flex-direction:column; flex:1;}
+  .job .body h3{font-size:1.12rem; color:var(--forest); margin:0 0 6px; font-weight:600; line-height:1.4;}
+  .job .body .co{font-size:.86rem; color:var(--gold-deep); margin-bottom:14px; font-weight:500;}
+  .job .meta{display:flex; flex-direction:column; gap:7px; font-size:.84rem; color:var(--muted); margin-bottom:14px;}
+  .job .meta .row{display:flex; align-items:center; gap:8px;}
+  .job .meta svg{width:15px; height:15px; color:var(--blue); flex:0 0 auto;}
+  .job .desc{font-size:.86rem; color:var(--muted); line-height:1.7; margin:0 0 18px; flex:1;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .job .foot{display:flex; align-items:center; justify-content:space-between; padding-top:16px; border-top:1px solid var(--line);}
+  .job .sal{font-family:"Noto Serif TC",serif; color:var(--forest); font-weight:600; font-size:1.02rem;}
+  .job .sal.neg{color:var(--blue);}
+  .job .apply{font-size:.88rem; color:var(--gold-deep); font-weight:500; display:inline-flex; align-items:center; gap:6px; transition:gap .3s;}
+  .job:hover .apply{gap:11px;}
+  .no-result{display:none; text-align:center; padding:60px 0; color:var(--muted);}
+  .no-result.show{display:block;}
+
+  /* ===== News carousel ===== */
+  .news{background:var(--paper); border-top:1px solid var(--line);}
+  .carousel{position:relative; max-width:880px; margin:0 auto;}
+  .slides{position:relative; overflow:hidden; border-radius:20px;}
+  .slide{
+    display:none; background:var(--cream); border:1px solid var(--line); border-radius:20px;
+    padding:46px 54px; box-shadow:var(--shadow-sm);
+  }
+  .slide.active{display:block;}
+  .slide .date{font-size:.8rem; letter-spacing:.18em; color:var(--gold-deep); margin-bottom:14px;}
+  .slide h3{font-size:clamp(1.4rem,2.6vw,1.9rem); color:var(--forest); margin:0 0 16px; font-weight:600; line-height:1.4;}
+  .slide p{color:var(--muted); margin:0; font-size:1rem;}
+  .slide .badge{display:inline-block; font-size:.74rem; color:var(--forest-2); background:rgba(24,82,64,.08); padding:4px 12px; border-radius:999px; margin-bottom:18px;}
+  .car-nav{display:flex; align-items:center; justify-content:center; gap:18px; margin-top:28px;}
+  .car-arrow{
+    width:44px; height:44px; border-radius:50%; border:1px solid var(--line); background:var(--paper); cursor:pointer;
+    display:grid; place-items:center; color:var(--forest); transition:.3s;
+  }
+  .car-arrow:hover{background:var(--forest); color:var(--gold); border-color:var(--forest); transform:scale(1.05);}
+  .car-dots{display:flex; gap:9px;}
+  .car-dots button{width:9px; height:9px; border-radius:50%; border:0; background:var(--line); cursor:pointer; transition:.3s; padding:0;}
+  .car-dots button.active{background:var(--gold); width:26px; border-radius:999px;}
+
+  /* ===== CTA banner ===== */
+  .cta-banner{background:linear-gradient(150deg, var(--forest-2), var(--forest-3)); color:var(--paper); position:relative; overflow:hidden;}
+  .cta-banner::before{content:""; position:absolute; right:-80px; top:-80px; width:340px; height:340px; border-radius:50%; background:radial-gradient(circle, rgba(226,182,93,.22), transparent 70%);}
+  .cta-banner .inner{display:flex; align-items:center; justify-content:space-between; gap:40px; flex-wrap:wrap; position:relative; z-index:1;}
+  .cta-banner h2{font-size:clamp(1.8rem,3.4vw,2.6rem); margin:0 0 10px; font-weight:600;}
+  .cta-banner p{margin:0; opacity:.82; max-width:34em;}
+
+  /* ===== Footer ===== */
+  footer.site{background:var(--forest-3); color:rgba(255,255,255,.82); padding:64px 0 30px;}
+  .foot-grid{display:grid; grid-template-columns:1.4fr 1fr 1fr 1.2fr; gap:40px; margin-bottom:44px;}
+  footer.site .flogo{display:flex; flex-direction:column; gap:16px;}
+  footer.site .flogo img{height:88px; width:auto; filter:drop-shadow(0 4px 12px rgba(0,0,0,.3));}
+  footer.site .flogo p{font-size:.88rem; opacity:.7; margin:0; max-width:26em;}
+  footer.site h4{font-family:"Noto Serif TC",serif; color:var(--gold); font-size:1rem; margin:0 0 18px; font-weight:600;}
+  footer.site ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:11px;}
+  footer.site ul a{font-size:.9rem; opacity:.78; transition:.3s;}
+  footer.site ul a:hover{opacity:1; color:var(--gold); padding-left:4px;}
+  footer.site .contact li{font-size:.9rem; opacity:.78; display:flex; gap:8px;}
+  .foot-bottom{border-top:1px solid rgba(255,255,255,.12); padding-top:24px; display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; font-size:.82rem; opacity:.6;}
+
+  /* ===== reveal ===== */
+  .reveal{opacity:0; transform:translateY(28px); transition:opacity .9s var(--ease), transform .9s var(--ease);}
+  .reveal.in{opacity:1; transform:none;}
+  .reveal[data-d="1"]{transition-delay:.08s;}
+  .reveal[data-d="2"]{transition-delay:.16s;}
+  .reveal[data-d="3"]{transition-delay:.24s;}
+  .reveal[data-d="4"]{transition-delay:.32s;}
+
+  /* ===== responsive ===== */
+  @media(max-width:980px){
+    .hero .wrap{grid-template-columns:1fr; gap:46px;}
+    .hero-visual{max-width:440px;}
+    .value-grid{grid-template-columns:repeat(2,1fr);}
+    .stat-grid{grid-template-columns:repeat(2,1fr); gap:36px 24px;}
+    .job-grid{grid-template-columns:repeat(2,1fr);}
+    .search-bar{grid-template-columns:1fr 1fr; }
+    .search-bar .btn{grid-column:1 / -1;}
+    .foot-grid{grid-template-columns:1fr 1fr;}
+  }
+  @media(max-width:680px){
+    .wrap{padding:0 18px;}
+    .pad{padding:68px 0;}
+    .hero{padding:120px 0 70px;}
+    .menu{position:fixed; inset:66px 0 auto 0; flex-direction:column; background:var(--paper); padding:18px; gap:4px;
+      border-bottom:1px solid var(--line); box-shadow:var(--shadow); transform:translateY(-130%); transition:transform .45s var(--ease); z-index:90; align-items:stretch;}
+    .menu.open{transform:translateY(0);}
+    .menu a.navlink{padding:12px 8px;}
+    .menu .btn{margin:8px 0 0; justify-content:center;}
+    .burger{display:flex;}
+    .brand .bname b{font-size:.95rem;}
+    .value-grid, .job-grid{grid-template-columns:1fr;}
+    .search-bar{grid-template-columns:1fr;}
+    .slide{padding:34px 26px;}
+    .foot-grid{grid-template-columns:1fr; gap:30px;}
+    .hero-float{left:0;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important; transition-duration:.01ms !important; scroll-behavior:auto;}
+    .reveal{opacity:1; transform:none;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header class="site" id="siteHeader">
+  <nav class="nav" aria-label="主導覽">
+    <a class="brand" href="#top" aria-label="灃禾人才招募 首頁">
+      <img src="forward-logo.png" alt="灃禾人才招募 FORWARD GROUP 標誌" />
+      <span class="bname"><b>灃禾人才招募</b><span>FORWARD GROUP</span></span>
+    </a>
+    <div class="menu" id="menu">
+      <a class="navlink active" href="#top">首頁</a>
+      <a class="navlink" href="#values">關於我們</a>
+      <a class="navlink" href="#jobs">職缺列表</a>
+      <a class="navlink" href="#news">最新動態</a>
+      <a class="btn btn-primary" href="#jobs">立即找工作</a>
+    </div>
+    <button class="burger" id="burger" aria-label="開啟選單" aria-expanded="false" aria-controls="menu">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+</header>
+
+<main id="top">
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-copy reveal">
+      <p class="eyebrow">餐飲人力媒合 · 在地深耕</p>
+      <h1>為每一份用心的工作，<br>找到<span class="em">最對的人</span>。</h1>
+      <p class="lead">灃禾人才招募專注於餐飲業外場、內場與門市正職媒合。我們相信，好的媒合不只是填補空缺，而是讓人與企業，一起把事情做得更好。</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#jobs">瀏覽職缺<span aria-hidden="true">→</span></a>
+        <a class="btn btn-ghost" href="#values">認識灃禾</a>
+      </div>
+      <div class="hero-meta">
+        <div class="m"><b>RBA</b><span>黃金級認證企業</span></div>
+        <div class="m"><b>餐飲</b><span>專業領域深耕</span></div>
+        <div class="m"><b>正職</b><span>長期穩定媒合</span></div>
+      </div>
+    </div>
+    <div class="hero-visual reveal" data-d="2">
+      <div class="hero-card">
+        <div class="logo-big">
+          <img src="forward-logo.png" alt="FORWARD GROUP 通過 RBA 黃金級認證" />
+        </div>
+        <div class="cert">
+          <div class="seal" aria-hidden="true">禾</div>
+          <div>
+            <small>企業社會責任</small>
+            <strong>通過 RBA 黃金級認證</strong>
+          </div>
+        </div>
+      </div>
+      <div class="hero-float">
+        <b>誠信媒合</b>
+        <span>以人為本的招募態度</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ VALUES ============ -->
+<section class="values pad" id="values">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">為什麼選擇灃禾</p>
+      <h2>把人放在第一位的<br>餐飲人力夥伴</h2>
+      <p>從理解需求到完成媒合，我們以專業與誠信，陪伴店家與求職者走每一步。</p>
+    </div>
+    <div class="value-grid">
+      <div class="vcard reveal" data-d="1">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 21l-4.9 2.6.9-5.5-4-3.9 5.5-.8z"/></svg></div>
+        <h3>餐飲專業</h3>
+        <p>深耕外場、內場、門市等職類，懂現場、懂排班，比一般人力公司更貼近餐飲日常。</p>
+      </div>
+      <div class="vcard reveal" data-d="2">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 11a4 4 0 1 0-4-4"/><path d="M2 21a6 6 0 0 1 12 0"/><circle cx="8" cy="7" r="4"/><path d="M22 21a6 6 0 0 0-4.5-5.8"/></svg></div>
+        <h3>精準媒合</h3>
+        <p>不只看條件，更看人格特質與職場文化的契合，讓每段聘僱關係都走得更長久。</p>
+      </div>
+      <div class="vcard reveal" data-d="3">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4"/><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></div>
+        <h3>誠信透明</h3>
+        <p>通過 RBA 黃金級認證，薪資與職務內容公開透明，求職不踩坑、企業更安心。</p>
+      </div>
+      <div class="vcard reveal" data-d="4">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v8M8 12h8"/><circle cx="12" cy="12" r="9"/></svg></div>
+        <h3>長期陪伴</h3>
+        <p>媒合不是終點，從到職到適應，我們持續關心，協助雙方建立穩固的合作關係。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STATS + MARQUEE ============ -->
+<section class="stats pad">
+  <div class="wrap">
+    <div class="sec-head center reveal">
+      <p class="eyebrow">以數字說話</p>
+      <h2 style="color:var(--paper)">用一次又一次的成功媒合，累積信任</h2>
+    </div>
+    <div class="stat-grid">
+      <div class="stat reveal" data-d="1"><div class="num"><span class="count" data-target="1280">0</span><span class="suf">+</span></div><div class="lab">累積成功媒合人次</div></div>
+      <div class="stat reveal" data-d="2"><div class="num"><span class="count" data-target="320">0</span><span class="suf">+</span></div><div class="lab">合作餐飲企業</div></div>
+      <div class="stat reveal" data-d="3"><div class="num"><span class="count" data-target="96">0</span><span class="suf">%</span></div><div class="lab">企業續用滿意度</div></div>
+      <div class="stat reveal" data-d="4"><div class="num"><span class="count" data-target="12">0</span><span class="suf">年</span></div><div class="lab">餐飲人力深耕經驗</div></div>
+    </div>
+    <div class="marquee-wrap reveal">
+      <p class="mtitle">合作夥伴</p>
+      <div class="marquee" aria-label="合作夥伴名單">
+        <div class="track" id="marqueeTrack">
+          <span class="item"><span class="dot"></span>尼匠餐飲</span>
+          <span class="item"><span class="dot"></span>米樂美食會</span>
+          <span class="item"><span class="dot"></span>客來喜餐飲</span>
+          <span class="item"><span class="dot"></span>禾豐火鍋</span>
+          <span class="item"><span class="dot"></span>晨光早餐</span>
+          <span class="item"><span class="dot"></span>常春藤手搖</span>
+          <span class="item"><span class="dot"></span>桂冠餐廳</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ JOBS ============ -->
+<section class="pad" id="jobs">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">熱門職缺</p>
+      <h2>找到適合你的下一份工作</h2>
+      <p>以關鍵字、僱用類型與月薪下限即時篩選，地點顯示於各職缺卡片，方便你快速比較。</p>
+    </div>
+
+    <form class="search-bar reveal" id="searchBar" role="search" aria-label="職缺搜尋">
+      <div class="field">
+        <label for="kw">關鍵字</label>
+        <input type="text" id="kw" placeholder="職稱、公司或工作內容…" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="type">僱用類型</label>
+        <select id="type">
+          <option value="">全部類型</option>
+          <option value="全職">全職</option>
+          <option value="兼職">兼職</option>
+          <option value="工讀">工讀</option>
+          <option value="約聘">約聘</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sal">薪資下限（月薪）</label>
+        <select id="sal">
+          <option value="0">不限</option>
+          <option value="28000">28,000 以上</option>
+          <option value="32000">32,000 以上</option>
+          <option value="36000">36,000 以上</option>
+          <option value="40000">40,000 以上</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        搜尋
+      </button>
+    </form>
+
+    <div class="result-meta reveal">
+      <div class="count">共 <b id="resultCount">0</b> 筆職缺</div>
+      <button type="button" id="resetBtn" class="btn btn-ghost" style="padding:8px 18px; font-size:.86rem;">清除條件</button>
+    </div>
+
+    <div class="job-grid" id="jobGrid" aria-live="polite"></div>
+    <div class="no-result" id="noResult">
+      <p style="font-family:'Noto Serif TC',serif; font-size:1.4rem; color:var(--forest); margin:0 0 8px;">找不到符合條件的職缺</p>
+      <p style="margin:0;">試著放寬關鍵字或薪資下限，或<a href="#" id="clearLink" style="color:var(--gold-deep); border-bottom:1px solid var(--gold);">清除所有條件</a>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ NEWS CAROUSEL ============ -->
+<section class="news pad" id="news">
+  <div class="wrap">
+    <div class="sec-head center reveal">
+      <p class="eyebrow">最新招募動態</p>
+      <h2>來自第一線的好消息</h2>
+    </div>
+    <div class="carousel reveal" id="carousel">
+      <div class="slides" id="slides">
+        <article class="slide active">
+          <span class="badge">招募中</span>
+          <p class="date">2026 · 06 · 12</p>
+          <h3>桃園燒肉外場團隊擴編，正職職缺開放申請</h3>
+          <p>尼匠餐飲新門市開幕在即，誠徵充滿熱忱的外場正職夥伴。完整教育訓練、穩定班表，歡迎喜歡與人互動的你加入。</p>
+        </article>
+        <article class="slide">
+          <span class="badge">企業合作</span>
+          <p class="date">2026 · 05 · 28</p>
+          <h3>米樂美食會攜手灃禾，打造火鍋現場新團隊</h3>
+          <p>從內場備料到外場服務，灃禾協助米樂美食會完成整季人力佈建，續用滿意度再創新高。</p>
+        </article>
+        <article class="slide">
+          <span class="badge">品牌里程</span>
+          <p class="date">2026 · 05 · 10</p>
+          <h3>灃禾再次通過 RBA 黃金級認證</h3>
+          <p>我們持續以負責任的商業實踐為自我要求，讓每一位求職者與合作企業，都能在透明與尊重中前進。</p>
+        </article>
+      </div>
+      <div class="car-nav">
+        <button class="car-arrow" id="prevBtn" aria-label="上一則"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></button>
+        <div class="car-dots" id="dots" role="tablist" aria-label="動態選擇"></div>
+        <button class="car-arrow" id="nextBtn" aria-label="下一則"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA BANNER ============ -->
+<section class="cta-banner pad">
+  <div class="wrap inner reveal">
+    <div>
+      <h2>準備好開始下一段旅程了嗎？</h2>
+      <p>無論你是正在找工作的求職者，還是需要可靠人力的餐飲店家，灃禾都樂意為你搭起最得體的橋。</p>
+    </div>
+    <div style="display:flex; gap:14px; flex-wrap:wrap;">
+      <a class="btn btn-gold" href="#jobs">求職者找工作</a>
+      <a class="btn btn-ghost" style="color:var(--paper); border-color:rgba(255,255,255,.4);" href="#news">企業徵才合作</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="flogo">
+        <img src="forward-logo.png" alt="灃禾人才招募 FORWARD GROUP 標誌" />
+        <p>灃禾人才招募 FORWARD GROUP — 專注餐飲業正職媒合，通過 RBA 黃金級認證，以人為本，誠信前行。</p>
+      </div>
+      <div>
+        <h4>快速連結</h4>
+        <ul>
+          <li><a href="#top">首頁</a></li>
+          <li><a href="#values">關於我們</a></li>
+          <li><a href="#jobs">職缺列表</a></li>
+          <li><a href="#news">最新動態</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>職類專長</h4>
+        <ul>
+          <li><a href="#jobs">外場服務</a></li>
+          <li><a href="#jobs">內場廚務</a></li>
+          <li><a href="#jobs">門市人員</a></li>
+          <li><a href="#jobs">儲備幹部</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>聯絡我們</h4>
+        <ul class="contact">
+          <li>客戶服務 · 週一至週五 09:00–18:00</li>
+          <li>service@forwardgroup.com.tw</li>
+          <li>桃園市桃園區（媒合服務涵蓋雙北桃）</li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 灃禾人才招募 FORWARD GROUP. 版權所有。</span>
+      <span>本頁為審核用原型 · zh-Hant</span>
+    </div>
+  </div>
+</footer>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+<script>
+$(function(){
+  "use strict";
+
+  /* ---------- 職缺資料 ---------- */
+  var jobs = [
+    {title:"桃園燒肉_外場正職人員", company:"尼匠餐飲有限公司", employmentType:"全職", location:"桃園市桃園區國際路二段27-1號", salaryRange:"月薪 32,000–38,000", salaryMin:32000, description:"負責顧客帶位、點餐與桌邊服務，維護用餐環境整潔。具服務熱忱、樂於與人互動者佳，提供完整教育訓練。", createdAt:"2026-06-12"},
+    {title:"桃園火鍋_餐飲正職人員", company:"米樂美食會", employmentType:"全職", location:"桃園市桃園區大有路575號", salaryRange:"月薪 30,000–36,000", salaryMin:30000, description:"鍋物餐廳現場服務與備料協助，輪班制，享員工餐與年節獎金，歡迎想穩定發展的你加入。", createdAt:"2026-06-10"},
+    {title:"雙北麵包店_門市人員", company:"薩厚亞商客來喜餐飲股份有限公司台灣分公司", employmentType:"全職", location:"雙北縣市區", salaryRange:"月薪 29,000–33,000", salaryMin:29000, description:"麵包門市銷售、商品陳列與結帳作業，環境明亮、團隊年輕，喜歡烘焙產業者優先。", createdAt:"2026-06-09"},
+    {title:"連鎖餐廳_內場廚助", company:"禾豐火鍋", employmentType:"全職", location:"新北市板橋區文化路一段", salaryRange:"月薪 33,000–40,000", salaryMin:33000, description:"協助主廚備料、出餐與廚房清潔，可學習實作技術，提供升遷管道與技能加給。", createdAt:"2026-06-08"},
+    {title:"手搖飲_飲料調製人員", company:"常春藤手搖", employmentType:"兼職", location:"桃園市中壢區中央西路", salaryRange:"時薪 190 起", salaryMin:0, description:"飲品製作、收銀與環境維護，班表彈性可搭配學業，適合想兼差的學生與二度就業者。", createdAt:"2026-06-07"},
+    {title:"連鎖餐飲_儲備幹部", company:"桂冠餐廳", employmentType:"全職", location:"台北市信義區松壽路", salaryRange:"面議", salaryMin:0, description:"店務管理培訓，含人力排班、營運數據與顧客服務，半年內培訓上線，提供明確晉升藍圖。", createdAt:"2026-06-05"},
+    {title:"早餐店_門市服務人員", company:"晨光早餐", employmentType:"工讀", location:"桃園市龜山區文化一路", salaryRange:"時薪 183 起", salaryMin:0, description:"早班煎台與外場點餐結帳，工時 05:30–11:30，適合晨型人，週休排班可協調。", createdAt:"2026-06-04"},
+    {title:"日式餐廳_外場領班", company:"尼匠餐飲有限公司", employmentType:"約聘", location:"桃園市中壢區領航南路", salaryRange:"月薪 38,000–45,000", salaryMin:38000, description:"帶領外場團隊、管理服務流程與班表，需具備餐飲現場管理經驗，享績效獎金。", createdAt:"2026-06-02"}
+  ];
+
+  /* ---------- 渲染職缺卡片 ---------- */
+  var pinSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+  var calSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4.5" width="18" height="17" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg>';
+  var tagSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7v5l9 9 7-7-9-9H3z"/><circle cx="7.5" cy="7.5" r="1.3"/></svg>';
+
+  function esc(s){ return $('<div>').text(s).html(); }
+
+  function cardHtml(j){
+    var negClass = (j.salaryRange.indexOf('面議') > -1) ? ' neg' : '';
+    return '' +
+      '<article class="job" data-type="'+esc(j.employmentType)+'" data-salmin="'+j.salaryMin+'" data-neg="'+(negClass?1:0)+'">' +
+        '<div class="thumb"><span class="ho">禾</span><span class="tag">'+esc(j.employmentType)+'</span></div>' +
+        '<div class="body">' +
+          '<h3 class="j-title">'+esc(j.title)+'</h3>' +
+          '<div class="co j-co">'+esc(j.company)+'</div>' +
+          '<div class="meta">' +
+            '<div class="row">'+pinSvg+'<span>'+esc(j.location)+'</span></div>' +
+            '<div class="row">'+tagSvg+'<span>'+esc(j.employmentType)+'</span></div>' +
+            '<div class="row">'+calSvg+'<span>發布於 '+esc(j.createdAt)+'</span></div>' +
+          '</div>' +
+          '<p class="desc j-desc">'+esc(j.description)+'</p>' +
+          '<div class="foot">' +
+            '<span class="sal'+negClass+'">'+esc(j.salaryRange)+'</span>' +
+            '<a class="apply" href="#" aria-label="查看 '+esc(j.title)+' 詳情">查看詳情 →</a>' +
+          '</div>' +
+        '</div>' +
+      '</article>';
+  }
+
+  var $grid = $('#jobGrid');
+  $.each(jobs, function(i, j){ $grid.append(cardHtml(j)); });
+
+  /* ---------- 篩選 (移除工作地點欄位) ---------- */
+  function applyFilter(){
+    var kw  = $.trim($('#kw').val()).toLowerCase();
+    var typ = $('#type').val();
+    var min = parseInt($('#sal').val(), 10) || 0;
+    var shown = 0;
+
+    $('#jobGrid .job').each(function(){
+      var $c = $(this);
+      var j = jobs[$('#jobGrid .job').index($c)];
+      var hay = (j.title + ' ' + j.company + ' ' + j.description).toLowerCase();
+      var isNeg = $c.data('neg') === 1;
+
+      var okKw  = !kw || hay.indexOf(kw) > -1;
+      var okTyp = !typ || j.employmentType === typ;
+      var okSal = min === 0 || isNeg || j.salaryMin >= min; // 面議一律保留
+
+      if(okKw && okTyp && okSal){
+        shown++;
+        if($c.is(':hidden')) $c.stop(true,true).css({display:''}).hide().fadeIn(380);
+        else $c.show();
+      } else {
+        if($c.is(':visible')) $c.stop(true,true).fadeOut(260, function(){ $(this).hide(); });
+        else $c.hide();
+      }
+    });
+
+    $({n: parseInt($('#resultCount').text(),10)||0}).animate({n: shown}, {
+      duration:380, easing:'swing',
+      step:function(){ $('#resultCount').text(Math.round(this.n)); },
+      complete:function(){ $('#resultCount').text(shown); }
+    });
+    $('#noResult').toggleClass('show', shown === 0);
+  }
+
+  $('#searchBar').on('submit', function(e){ e.preventDefault(); applyFilter(); });
+  $('#kw').on('input', applyFilter);
+  $('#type, #sal').on('change', applyFilter);
+  function resetFilter(e){ if(e) e.preventDefault(); $('#kw').val(''); $('#type').val(''); $('#sal').val('0'); applyFilter(); }
+  $('#resetBtn').on('click', resetFilter);
+  $('#clearLink').on('click', resetFilter);
+  applyFilter();
+
+  /* ---------- header 縮小 + 陰影 ---------- */
+  var $hd = $('#siteHeader');
+  $(window).on('scroll', function(){ $hd.toggleClass('shrink', $(window).scrollTop() > 24); });
+
+  /* ---------- 手機選單 ---------- */
+  $('#burger').on('click', function(){
+    var open = $('#menu').toggleClass('open').hasClass('open');
+    $(this).attr('aria-expanded', open);
+  });
+  $('#menu a').on('click', function(){ $('#menu').removeClass('open'); $('#burger').attr('aria-expanded', false); });
+
+  /* ---------- 平滑錨點 + 導覽 active ---------- */
+  $('a[href^="#"]').on('click', function(e){
+    var id = $(this).attr('href');
+    if(id === '#' || id.length < 2) return;
+    var $t = $(id);
+    if($t.length){
+      e.preventDefault();
+      var off = ($(window).scrollTop() > 24 ? 58 : 66);
+      $('html,body').animate({scrollTop: $t.offset().top - off + 1}, 700, 'swing');
+    }
+  });
+
+  /* ---------- scroll-reveal (IntersectionObserver) ---------- */
+  var revs = document.querySelectorAll('.reveal');
+  if('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); }
+      });
+    }, {threshold:.16, rootMargin:'0px 0px -8% 0px'});
+    revs.forEach(function(el){ io.observe(el); });
+  } else {
+    revs.forEach(function(el){ el.classList.add('in'); });
+  }
+
+  /* ---------- counter 動畫 (進入視窗才觸發) ---------- */
+  function runCounter($el){
+    var target = parseInt($el.data('target'), 10);
+    $({v:0}).animate({v:target}, {
+      duration:1600, easing:'swing',
+      step:function(){ $el.text(Math.floor(this.v).toLocaleString()); },
+      complete:function(){ $el.text(target.toLocaleString()); }
+    });
+  }
+  var counters = document.querySelectorAll('.count');
+  if('IntersectionObserver' in window){
+    var co = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(en.isIntersecting){ runCounter($(en.target)); co.unobserve(en.target); }
+      });
+    }, {threshold:.6});
+    counters.forEach(function(el){ co.observe(el); });
+  } else {
+    counters.forEach(function(el){ runCounter($(el)); });
+  }
+
+  /* ---------- 動態輪播 (自動 + 箭頭/圓點 + 移入暫停) ---------- */
+  var $slides = $('#slides .slide');
+  var total = $slides.length, cur = 0, timer = null;
+  var $dots = $('#dots');
+  for(var d=0; d<total; d++){
+    $dots.append('<button role="tab" aria-label="第 '+(d+1)+' 則動態"'+(d===0?' class="active" aria-selected="true"':'')+' data-i="'+d+'"></button>');
+  }
+  function go(n){
+    cur = (n + total) % total;
+    $slides.fadeOut(0).removeClass('active').eq(cur).fadeIn(420).addClass('active');
+    $dots.children().removeClass('active').attr('aria-selected','false')
+         .eq(cur).addClass('active').attr('aria-selected','true');
+  }
+  function next(){ go(cur+1); }
+  function prev(){ go(cur-1); }
+  function start(){ stop(); timer = setInterval(next, 5000); }
+  function stop(){ if(timer){ clearInterval(timer); timer = null; } }
+  $('#nextBtn').on('click', function(){ next(); start(); });
+  $('#prevBtn').on('click', function(){ prev(); start(); });
+  $dots.on('click', 'button', function(){ go($(this).data('i')); start(); });
+  $('#carousel').on('mouseenter', stop).on('mouseleave', start);
+  go(0); start();
+});
+</script>
+</body>
+</html>

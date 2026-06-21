@@ -34,23 +34,25 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
       <div className="resume-table-wrapper">
         <table className="resume-table">
           <colgroup>
-            <col style={{ width: '16%' }} />
-            <col style={{ width: '24%' }} />
-            <col style={{ width: '12%' }} />
-            <col style={{ width: '28%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '15%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '21%' }} />
             <col style={{ width: '20%' }} />
           </colgroup>
           <tbody>
             <tr>
               <td className="td-label">姓名</td>
-              <td className="td-content">{data.name}</td>
+              <td colSpan="2" className="td-content">{data.name}</td>
               <td className="td-label">性別</td>
-              <td className="td-content">
+              <td colSpan="2" className="td-content">
                 <span className={`print-checkbox ${data.gender === '男' ? 'checked' : ''}`}></span> 男
                 <span className="mx-3"></span>
                 <span className={`print-checkbox ${data.gender === '女' ? 'checked' : ''}`}></span> 女
               </td>
-              <td rowSpan="6" className="td-content">
+              <td rowSpan="5" className="td-content">
                 {data.photoDataUrl ? (
                   <div className="mx-auto" style={{ width: PHOTO_WIDTH_CM, height: PHOTO_HEIGHT_CM }}>
                     <img src={data.photoDataUrl} alt="個人照片" className="w-full h-full object-cover" />
@@ -70,43 +72,41 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
               <td className="td-content">{data.birthDate ? data.birthDate.replace(/-/g, '/') : ''}</td>
               <td className="td-label">年齡</td>
               <td className="td-content">{data.age}</td>
-            </tr>
-            <tr>
               <td className="td-label">國籍</td>
-              <td colSpan="3" className="td-content-left">{data.nationality}</td>
+              <td className="td-content">{data.nationality}</td>
             </tr>
             <tr>
               <td className="td-label">婚姻狀況</td>
-              <td className="td-content">
+              <td colSpan="2" className="td-content">
                 <span className={`print-checkbox ${data.maritalStatus === '未婚' ? 'checked' : ''}`}></span> 未婚
                 <span className="mx-3"></span>
                 <span className={`print-checkbox ${data.maritalStatus === '已婚' ? 'checked' : ''}`}></span> 已婚
               </td>
               <td className="td-label">居留證號</td>
-              <td className="td-content">{data.arcNumber}</td>
+              <td colSpan="2" className="td-content">{data.arcNumber}</td>
             </tr>
             <tr>
               <td className="td-label">聯絡電話</td>
-              <td className="td-content">{data.phone}</td>
+              <td colSpan="2" className="td-content">{data.phone}</td>
               <td className="td-label">電子郵件</td>
-              <td className="td-content text-[10.5pt]">{data.email}</td>
+              <td colSpan="2" className="td-content text-[10.5pt]">{data.email}</td>
             </tr>
             <tr>
               <td className="td-label">居住地址</td>
-              <td colSpan="3" className="td-content-left">{data.address}</td>
+              <td colSpan="5" className="td-content-left">{data.address}</td>
             </tr>
 
             <tr>
               <td rowSpan={educationForOutput.length + 1} className="td-label">教育背景</td>
-              <td className="td-label">學校名稱</td>
+              <td colSpan="2" className="td-label">學校名稱</td>
               <td colSpan="2" className="td-label">就讀科系</td>
-              <td className="td-label">畢業日期</td>
+              <td colSpan="2" className="td-label">畢業日期</td>
             </tr>
             {educationForOutput.map((edu, index) => (
               <tr key={`preview-edu-${index}`}>
-                <td className="td-content">{edu.school || ''}</td>
+                <td colSpan="2" className="td-content">{edu.school || ''}</td>
                 <td colSpan="2" className="td-content">{edu.major || ''}</td>
-                <td className="td-content">{formatYearMonthForWordCell(edu.gradDate)}</td>
+                <td colSpan="2" className="td-content">{formatYearMonthForWordCell(edu.gradDate)}</td>
               </tr>
             ))}
 
@@ -114,24 +114,24 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
               <td rowSpan={Math.max(4, data.experience.length) + 1} className="td-label">
                 工作經驗<br /><br /><span className="font-normal text-[10pt] leading-tight block">(兼職或實習<br />經驗可)</span>
               </td>
-              <td className="td-label">公司名稱</td>
+              <td colSpan="2" className="td-label">公司名稱</td>
               <td colSpan="2" className="td-label">職稱</td>
-              <td className="td-label">工作時間</td>
+              <td colSpan="2" className="td-label">工作時間</td>
             </tr>
             {[...Array(4)].map((_, i) => {
               const exp = data.experience[i] || { company: '', title: '', periodStart: '', periodEnd: '', period: '' };
               return (
                 <tr key={`exp-${i}`}>
-                  <td className="td-content h-[35px]">{exp.company}</td>
+                  <td colSpan="2" className="td-content h-[35px]">{exp.company}</td>
                   <td colSpan="2" className="td-content">{exp.title}</td>
-                  <td className="td-content">{formatExperiencePeriod(exp)}</td>
+                  <td colSpan="2" className="td-content">{formatExperiencePeriod(exp)}</td>
                 </tr>
               );
             })}
 
             <tr>
               <td className="td-label">語言能力</td>
-              <td colSpan="4" className="td-content text-center">
+              <td colSpan="6" className="td-content text-center">
                 {langOptions.map((lang) => (
                   <span key={lang} className="mr-6 inline-flex items-center">
                     <span className={`print-checkbox ${data.languages.includes(lang) ? 'checked' : ''}`}></span> {lang}
@@ -146,9 +146,9 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
             {hasCertificates ? (
               <tr>
                 <td className="td-label">證照</td>
-                <td className="td-content text-blue-700 underline">{data.certificates}</td>
+                <td colSpan="2" className="td-content text-blue-700 underline">{data.certificates}</td>
                 <td className="td-label">交通</td>
-                <td colSpan="2" className="td-content-left">
+                <td colSpan="3" className="td-content-left">
                   <div className="flex flex-wrap gap-y-1">
                     {transOptions.map((trans) => (
                       <span key={trans} className="mr-3 inline-flex items-center">
@@ -161,7 +161,7 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
             ) : (
               <tr>
                 <td className="td-label">交通</td>
-                <td colSpan="4" className="td-content-left">
+                <td colSpan="6" className="td-content-left">
                   <div className="flex flex-wrap gap-y-1">
                     {transOptions.map((trans) => (
                       <span key={trans} className="mr-3 inline-flex items-center">
@@ -175,7 +175,7 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
 
             <tr>
               <td className="td-label">可接受工作地點<br /><br /><span className="font-normal text-[10pt]">(可複選)</span></td>
-              <td colSpan="4" className="td-content-left">
+              <td colSpan="6" className="td-content-left">
                 <div className="flex flex-wrap gap-y-2">
                   {locOptions.map((loc) => (
                     <span key={loc} className="w-[12%] inline-flex items-center">
@@ -188,7 +188,7 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
 
             <tr>
               <td className="td-label">希望工作內容<br /><br /><span className="font-normal text-[10pt]">(可複選)</span></td>
-              <td colSpan="4" className="td-content-left">
+              <td colSpan="6" className="td-content-left">
                 <div className="flex flex-wrap gap-y-2">
                   {jobOptions.map((job, idx) => (
                     <span key={job} className={`${idx < 3 ? 'w-[33%]' : 'w-[20%]'} inline-flex items-center`}>
@@ -204,7 +204,7 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
 
             <tr>
               <td className="td-label">可以接受工作時間<br /><br /><span className="font-normal text-[10pt]">(可複選)</span></td>
-              <td colSpan="4" className="td-content-left">
+              <td colSpan="6" className="td-content-left">
                 {timeOptions.map((time) => (
                   <span key={time} className="mr-8 inline-flex items-center">
                     <span className={`print-checkbox ${data.workHours.includes(time) ? 'checked' : ''}`}></span> {time}
@@ -215,7 +215,7 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
 
             <tr>
               <td className="td-label">希望待遇</td>
-              <td colSpan="4" className="td-content-left">{data.salary}</td>
+              <td colSpan="6" className="td-content-left">{data.salary}</td>
             </tr>
           </tbody>
         </table>

@@ -1114,7 +1114,7 @@ const ResumeBuilder = () => {
             <td class="center" style="width: 24%;">${safeData.name}</td>
             <td class="center bold" style="width: 12%;">性別</td>
             <td class="center" style="width: 28%;">${getCb(formData.gender === '男')} 男 &nbsp;&nbsp;&nbsp;&nbsp; ${getCb(formData.gender === '女')} 女</td>
-            <td rowspan="6" style="width: 20%; text-align: center; vertical-align: middle;">
+            <td rowspan="5" style="width: 20%; text-align: center; vertical-align: middle;">
               ${safePhotoSrc ? `<img src="${safePhotoSrc}" alt="個人照片" style="width: ${PHOTO_WIDTH_CM}; height: ${PHOTO_HEIGHT_CM}; object-fit: cover; display: block; margin: 0 auto;" />` : ''}
             </td>
           </tr>
@@ -1123,10 +1123,8 @@ const ResumeBuilder = () => {
             <td class="center">${safeData.birthDate}</td>
             <td class="center bold">年齡</td>
             <td class="center">${safeData.age}</td>
-          </tr>
-          <tr>
             <td class="center bold">國籍</td>
-            <td colspan="3" style="padding-left: 10px;">${safeData.nationality}</td>
+            <td class="center">${safeData.nationality}</td>
           </tr>
           <tr>
             <td class="center bold">婚姻狀況</td>

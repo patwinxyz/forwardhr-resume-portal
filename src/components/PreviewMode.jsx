@@ -50,7 +50,7 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
                 <span className="mx-3"></span>
                 <span className={`print-checkbox ${data.gender === '女' ? 'checked' : ''}`}></span> 女
               </td>
-              <td rowSpan="5" className="td-content">
+              <td rowSpan="6" className="td-content">
                 {data.photoDataUrl ? (
                   <div className="mx-auto" style={{ width: PHOTO_WIDTH_CM, height: PHOTO_HEIGHT_CM }}>
                     <img src={data.photoDataUrl} alt="個人照片" className="w-full h-full object-cover" />
@@ -70,6 +70,10 @@ const PreviewMode = ({ data, educationForOutput, hasCertificates, previewScale =
               <td className="td-content">{data.birthDate ? data.birthDate.replace(/-/g, '/') : ''}</td>
               <td className="td-label">年齡</td>
               <td className="td-content">{data.age}</td>
+            </tr>
+            <tr>
+              <td className="td-label">國籍</td>
+              <td colSpan="3" className="td-content-left">{data.nationality}</td>
             </tr>
             <tr>
               <td className="td-label">婚姻狀況</td>

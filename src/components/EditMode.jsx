@@ -167,6 +167,19 @@ const EditMode = ({
             <div className="text-xs text-gray-500 mt-1">會依出生日期自動計算</div>
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">國籍</label>
+            <input
+              type="text"
+              name="nationality"
+              value={data.nationality}
+              onChange={onChange}
+              placeholder="例：中華民國"
+              data-field-key="nationality"
+              id="field-nationality"
+              className={getErrorInputClass('nationality', 'w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 transition-all')}
+            />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">婚姻狀況</label>
             <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 rounded-md p-2 ${activeErrorField === 'maritalStatus' ? 'ring-2 ring-red-500 bg-red-50' : ''}`}>
               <label

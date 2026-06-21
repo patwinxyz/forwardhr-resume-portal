@@ -5,6 +5,7 @@ const initialData = {
   gender: '',
   birthDate: '',
   age: '',
+  nationality: '',
   maritalStatus: '',
   arcNumber: '',
   phone: '',
@@ -642,6 +643,7 @@ const fillResumeTemplateXml = (xmlDocument, formData, options = {}) => {
   setByIndex(0, 3, `${getWordChecked(formData.gender === '男')}男   ${getWordChecked(formData.gender === '女')}女`);
   setByIndex(1, 1, formatDateForWordCell(formData.birthDate));
   setByIndex(1, 3, formData.age);
+  setByIndex(1, 5, formData.nationality);
   setByIndex(2, 1, `${getWordChecked(formData.maritalStatus === '未婚')}未婚   ${getWordChecked(formData.maritalStatus === '已婚')}已婚`);
   setByIndex(2, 3, formData.arcNumber);
   setByIndex(3, 1, formData.phone);

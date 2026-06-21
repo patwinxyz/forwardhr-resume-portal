@@ -80,7 +80,7 @@ const getDefaultPreviewScale = () => {
   if (width < 1440) return 0.59;
   return 0.62;
 };
-const BASIC_REQUIRED_FIELD_KEYS = new Set(['name', 'gender', 'birthDate', 'maritalStatus', 'phone', 'email', 'address']);
+const BASIC_REQUIRED_FIELD_KEYS = new Set(['name', 'gender', 'birthDate', 'nationality', 'maritalStatus', 'phone', 'email', 'address']);
 const isStepField = (stepIndex, fieldKey) => {
   const safeField = String(fieldKey || '');
   if (!safeField) return false;
@@ -748,7 +748,7 @@ const ResumeBuilder = () => {
   const getErrorInputClass = (fieldKey, baseClass) =>
     `${baseClass} ${activeErrorField === fieldKey ? 'border-red-500 ring-2 ring-red-500 bg-red-50' : ''}`;
 
-  const validateForm = () => {
+  const validateForm = ({ requireNationality = false } = {}) => {
     const errors = [];
     const pushError = (fieldKey, message) => errors.push({ fieldKey, message });
     const phonePattern = /^\d{10}$/;
@@ -770,6 +770,7 @@ const ResumeBuilder = () => {
     } else if (!Number.isInteger(ageNumber) || ageNumber < MIN_AGE || ageNumber > 100) {
       pushError('birthDate', `年齡需為 ${MIN_AGE}-100 的整數`);
     }
+    if (requireNationality && !hasValue(data.nationality)) pushError('nationality', '國籍');
     if (!hasValue(data.maritalStatus)) pushError('maritalStatus', '婚姻狀況');
     if (!hasValue(data.phone)) {
       pushError('phone', '聯絡電話');
@@ -821,8 +822,8 @@ const ResumeBuilder = () => {
     return errors;
   };
 
-  const ensureValidBeforeAction = (actionText) => {
-    const errors = validateForm();
+  const ensureValidBeforeAction = (actionText, validateOptions = {}) => {
+    const errors = validateForm(validateOptions);
     const firstError = errors[0];
     setValidationErrors(firstError ? [firstError.message] : []);
     setActiveErrorField(firstError ? firstError.fieldKey : '');
@@ -851,7 +852,8 @@ const ResumeBuilder = () => {
   };
 
   const goPreview = () => {
-    if (!ensureValidBeforeAction('預覽')) return;
+    // 國籍僅對「新送出」（一般使用者）必填；管理員預覽/匯出舊履歷不擋。
+    if (!ensureValidBeforeAction('預覽', { requireNationality: !isAdmin })) return;
     setTurnstileToken('');
     turnstileWidgetRef.current?.reset?.();
     setPreviewScale(getDefaultPreviewScale());
@@ -1055,6 +1057,7 @@ const ResumeBuilder = () => {
       name: safeText(formData.name),
       birthDate: formData.birthDate ? escapeHTML(formData.birthDate.replace(/-/g, '/')) : '',
       age: safeText(formData.age),
+      nationality: safeText(formData.nationality),
       arcNumber: safeText(formData.arcNumber),
       phone: safeText(formData.phone),
       email: safeText(formData.email),
@@ -1111,7 +1114,7 @@ const ResumeBuilder = () => {
             <td class="center" style="width: 24%;">${safeData.name}</td>
             <td class="center bold" style="width: 12%;">性別</td>
             <td class="center" style="width: 28%;">${getCb(formData.gender === '男')} 男 &nbsp;&nbsp;&nbsp;&nbsp; ${getCb(formData.gender === '女')} 女</td>
-            <td rowspan="5" style="width: 20%; text-align: center; vertical-align: middle;">
+            <td rowspan="6" style="width: 20%; text-align: center; vertical-align: middle;">
               ${safePhotoSrc ? `<img src="${safePhotoSrc}" alt="個人照片" style="width: ${PHOTO_WIDTH_CM}; height: ${PHOTO_HEIGHT_CM}; object-fit: cover; display: block; margin: 0 auto;" />` : ''}
             </td>
           </tr>
@@ -1120,6 +1123,10 @@ const ResumeBuilder = () => {
             <td class="center">${safeData.birthDate}</td>
             <td class="center bold">年齡</td>
             <td class="center">${safeData.age}</td>
+          </tr>
+          <tr>
+            <td class="center bold">國籍</td>
+            <td colspan="3" style="padding-left: 10px;">${safeData.nationality}</td>
           </tr>
           <tr>
             <td class="center bold">婚姻狀況</td>
@@ -1380,7 +1387,8 @@ const ResumeBuilder = () => {
 
   const sendResumeByEmail = async () => {
     if (isSendingEmail) return;
-    if (!ensureValidBeforeAction('送出寄送')) return;
+    // 國籍僅對一般使用者的新送出必填；管理員不擋（與匯出一致）。
+    if (!ensureValidBeforeAction('送出寄送', { requireNationality: !isAdmin })) return;
     if (isTurnstileEnabled && !turnstileToken) {
       showNotice('請先完成機器人驗證，再送出履歷。', 'error');
       return;

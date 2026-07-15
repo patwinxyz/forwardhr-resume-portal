@@ -61,6 +61,7 @@ export const blankRequisitionForm = (authUser) => ({
   mealNote: '',
   health: [],
   healthOther: '',
+  photos: [], // 場地/工作照片（前端 data URL；送出後由後端上傳 Storage 轉為 URL）
   consent: false,
 });
 
@@ -144,6 +145,28 @@ const RequisitionForm = ({ initial, editing = false, busy = false, onSaveDraft, 
       const arr = Array.isArray(d[category]) ? d[category] : [];
       return { ...d, [category]: arr.includes(opt) ? arr.filter((x) => x !== opt) : [...arr, opt] };
     });
+
+  const MAX_PHOTOS = 4;
+  const addPhotos = (fileList) => {
+    const files = Array.from(fileList || []);
+    const room = MAX_PHOTOS - (data.photos?.length || 0);
+    files.slice(0, room).forEach((file) => {
+      if (!file.type || !file.type.startsWith('image/')) return;
+      if (file.size > 8 * 1024 * 1024) {
+        window.alert(`「${file.name}」超過 8MB，請壓縮後再上傳`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () =>
+        setData((d) => {
+          const cur = Array.isArray(d.photos) ? d.photos : [];
+          if (cur.length >= MAX_PHOTOS) return d;
+          return { ...d, photos: [...cur, String(reader.result)] };
+        });
+      reader.readAsDataURL(file);
+    });
+  };
+  const removePhoto = (idx) => setData((d) => ({ ...d, photos: (d.photos || []).filter((_, i) => i !== idx) }));
 
   const getErrorInputClass = (key, base) =>
     errors[key] ? `${base} border-red-500 ring-2 ring-red-500 bg-red-50` : base;
@@ -373,8 +396,44 @@ const RequisitionForm = ({ initial, editing = false, busy = false, onSaveDraft, 
         </Field>
       </SectionCard>
 
-      {/* 5. 送出前確認 */}
-      <SectionCard index={5} title="送出前確認" hint="送出即通知灃禾">
+      {/* 5. 場地照片 */}
+      <SectionCard index={5} title="場地照片" hint="公司及工作內容照片，最多 4 張">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {(data.photos || []).map((src, i) => (
+            <div key={i} className="relative rounded-lg overflow-hidden border border-gray-200 aspect-[4/3] bg-gray-50">
+              <img src={src} alt={`場地照片 ${i + 1}`} className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removePhoto(i)}
+                aria-label={`移除照片 ${i + 1}`}
+                className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/55 text-white text-sm leading-none flex items-center justify-center hover:bg-black/75"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {(data.photos || []).length < MAX_PHOTOS && (
+            <label className="cursor-pointer rounded-lg border border-dashed border-gray-300 aspect-[4/3] bg-gray-50 hover:bg-blue-50 hover:border-blue-300 flex flex-col items-center justify-center text-center text-blue-600 text-sm font-semibold gap-1">
+              <span className="text-2xl leading-none">＋</span>
+              上傳照片
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  addPhotos(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-gray-400">建議上傳環境、工作區、員工餐等照片，協助人選了解實際工作情境（單張 8MB 以內）。</p>
+      </SectionCard>
+
+      {/* 6. 送出前確認 */}
+      <SectionCard index={6} title="送出前確認" hint="送出即通知灃禾">
         <label className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3.5 cursor-pointer">
           <input
             type="checkbox"

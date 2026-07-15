@@ -9,6 +9,7 @@ import {
 import NoticeBanner from './components/NoticeBanner';
 import RequisitionForm, { STATUS, blankRequisitionForm } from './employer/RequisitionForm';
 import {
+  deleteRequisition,
   listRequisitions,
   notifyRequisition,
   saveRequisition,
@@ -89,6 +90,17 @@ const RequisitionDetail = ({ record }) => {
         <DetailRow k="餐點" v={`${f.meals || ''}${f.meals === '有提供' && f.mealCount ? ` ${f.mealCount} 餐/日` : ''}${f.mealNote ? `（${f.mealNote}）` : ''}`} />
         <DetailRow k="特殊體檢" v={health} full />
       </Card>
+      {Array.isArray(f.photos) && f.photos.length > 0 && (
+        <Card title="場地照片">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:col-span-2">
+            {f.photos.map((src, i) => (
+              <a key={i} href={src} target="_blank" rel="noreferrer" className="block rounded-lg overflow-hidden border border-gray-200 aspect-[4/3] bg-gray-50">
+                <img src={src} alt={`場地照片 ${i + 1}`} className="w-full h-full object-cover" />
+              </a>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 };
@@ -98,7 +110,7 @@ const Brand = () => (
   <a href="/employer" className="flex items-center gap-2 text-blue-700 font-bold text-lg">
     <span className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center">禾</span>
     <span className="leading-tight">
-      灃禾人力銀行
+      灃禾
       <span className="block text-[11px] font-medium text-gray-500">廠商專區 · 招募需求</span>
     </span>
   </a>
@@ -106,8 +118,6 @@ const Brand = () => (
 
 export default function EmployerApp() {
   const configured = isFirebaseAuthConfigured();
-  const pathname = typeof window !== 'undefined' ? window.location.pathname || '' : '';
-  const wantAdmin = /^\/employer\/admin(?:\/|$)/i.test(pathname);
 
   const [authUser, setAuthUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -129,7 +139,8 @@ export default function EmployerApp() {
   const adminEmails = parseAdminEmails();
   const email = String(authUser?.email || '').trim().toLowerCase();
   const isAdmin = email ? adminEmails.includes(email) : false;
-  const isAdminView = wantAdmin && isAdmin;
+  // 依身分自動決定畫面：管理員只看後台、其他人只看廠商填寫頁（不用手動切換）
+  const isAdminView = isAdmin;
 
   useEffect(() => {
     const unsub = subscribeAuthUser((u) => {
@@ -190,6 +201,20 @@ export default function EmployerApp() {
     setScreen('detail');
   };
 
+  const handleDelete = async (record) => {
+    if (typeof window !== 'undefined' && !window.confirm(`確定刪除「${record.jobTitle || '此需求'}」？此動作無法復原。`)) return;
+    setBusy(true);
+    try {
+      await deleteRequisition(authUser, record.id);
+      await reload();
+      showNotice('已刪除', 'success');
+    } catch (e) {
+      showNotice(e?.message || '刪除失敗', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleSaveDraft = async (formData) => {
     setBusy(true);
     try {
@@ -247,23 +272,6 @@ export default function EmployerApp() {
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
           <Brand />
           <div className="flex items-center gap-2 flex-wrap">
-            {authUser && !isAdminView && (
-              <>
-                <button onClick={openNew} className="inline-flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
-                  <PlusCircle className="w-4 h-4" /> 新增需求
-                </button>
-                {isAdmin && (
-                  <a href="/employer/admin" className="px-3 py-2 rounded-md text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50">
-                    管理後台
-                  </a>
-                )}
-              </>
-            )}
-            {authUser && isAdminView && (
-              <a href="/employer" className="px-3 py-2 rounded-md text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50">
-                廠商填寫頁
-              </a>
-            )}
             {authUser ? (
               <>
                 <span className="hidden sm:inline text-xs text-gray-500 max-w-[180px] truncate">{authUser.email}</span>
@@ -330,20 +338,6 @@ export default function EmployerApp() {
           >
             <LogIn className="w-4 h-4" /> {authBusy ? '登入中...' : '使用 Google 登入'}
           </button>
-        </div>
-      </>)
-    );
-  }
-
-  if (wantAdmin && !isAdmin) {
-    return (
-      shell(<>
-        <div className="max-w-md mx-auto mt-10 bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-center">
-          <p className="text-gray-800 font-semibold">需要管理員權限</p>
-          <p className="text-sm text-gray-500 mt-2">此頁僅限灃禾管理員。</p>
-          <a href="/employer" className="mt-4 inline-block px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
-            回廠商填寫頁
-          </a>
         </div>
       </>)
     );
@@ -607,7 +601,7 @@ export default function EmployerApp() {
                   <th className="px-4 py-2.5 font-semibold">雇用性質</th>
                   <th className="px-4 py-2.5 font-semibold">狀態</th>
                   <th className="px-4 py-2.5 font-semibold">更新時間</th>
-                  <th className="px-4 py-2.5 font-semibold w-28">操作</th>
+                  <th className="px-4 py-2.5 font-semibold w-40">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -620,9 +614,14 @@ export default function EmployerApp() {
                     <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
                     <td className="px-4 py-3 text-gray-500">{fmt(r.updatedAt)}</td>
                     <td className="px-4 py-3">
-                      <button onClick={() => openEditOrView(r)} className="px-2.5 py-1.5 rounded-md text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50">
-                        {r.status === 'draft' ? '繼續填寫' : r.status === 'submitted' ? '編輯' : '檢視'}
-                      </button>
+                      <div className="flex gap-2">
+                        <button onClick={() => openEditOrView(r)} className="px-2.5 py-1.5 rounded-md text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50">
+                          {r.status === 'draft' ? '繼續填寫' : r.status === 'submitted' ? '編輯' : '檢視'}
+                        </button>
+                        <button onClick={() => handleDelete(r)} disabled={busy} className="px-2.5 py-1.5 rounded-md text-xs font-semibold border border-red-100 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-60">
+                          刪除
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

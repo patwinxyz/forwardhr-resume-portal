@@ -1,4 +1,7 @@
-import { getFirestoreDb, verifyFirebaseIdToken } from './_lib/firebaseAdmin.js';
+import { getFirestoreDb, getStorageBucket, verifyFirebaseIdToken } from './_lib/firebaseAdmin.js';
+
+// 允許較大的 request body（場地照片以 data URL 夾帶）
+export const config = { api: { bodyParser: { sizeLimit: '12mb' } } };
 
 /**
  * 招募需求（廠商）API — 對應廠商入口 /employer 的「招募需求表」。
@@ -29,6 +32,8 @@ const AUDIT_COLLECTION_NAME = 'requisitionAuditLogs';
 const MAX_FORMDATA_BYTES = 900000;
 const VALID_STATUSES = new Set(['draft', 'submitted', 'open', 'closed']);
 const OWNER_EDITABLE_STATUSES = new Set(['draft', 'submitted']);
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024; // 每張照片上限 8MB
+const MAX_PHOTOS = 4; // 最多 4 張場地/工作照片
 
 const ADMIN_EMAILS = new Set(
   String(process.env.ADMIN_EMAILS || process.env.VITE_ADMIN_EMAILS || '')
@@ -144,6 +149,89 @@ const deriveIndexFields = (formData) => {
   };
 };
 
+// ---- 場地照片：存 Firebase Storage，Firestore 只留 URL（比照 resume-records） ----
+const isDataUrlImage = (value) => /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(String(value || ''));
+const isHttpUrl = (value) => /^https?:\/\//i.test(String(value || ''));
+
+const parseImageDataUrl = (dataUrl) => {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/i.exec(String(dataUrl || ''));
+  if (!match) throw new Error('照片格式不正確');
+  return { mimeType: match[1].toLowerCase(), base64Data: match[2] };
+};
+
+const imageExt = (mimeType) => {
+  if (mimeType === 'image/png') return 'png';
+  if (mimeType === 'image/webp') return 'webp';
+  if (mimeType === 'image/gif') return 'gif';
+  if (mimeType === 'image/bmp') return 'bmp';
+  return 'jpg';
+};
+
+const deleteStorageObject = async (bucket, path) => {
+  const safe = toSafeText(path);
+  if (!safe) return;
+  try {
+    await bucket.file(safe).delete({ ignoreNotFound: true });
+  } catch (error) {
+    // 清理失敗不影響主流程
+  }
+};
+
+const uploadPhotoDataUrl = async (bucket, ownerUid, recordId, dataUrl, idx) => {
+  const { mimeType, base64Data } = parseImageDataUrl(dataUrl);
+  const buffer = Buffer.from(base64Data, 'base64');
+  if (!buffer || buffer.length === 0) throw new Error('照片內容為空');
+  if (buffer.length > MAX_PHOTO_BYTES) throw new Error('照片過大，請上傳 8MB 以下圖片');
+  const fileName = `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}.${imageExt(mimeType)}`;
+  const photoPath = `requisition-photos/${normalizeUid(ownerUid)}/${recordId}/${fileName}`;
+  const file = bucket.file(photoPath);
+  await file.save(buffer, {
+    resumable: false,
+    contentType: mimeType,
+    metadata: { cacheControl: 'public,max-age=31536000' },
+  });
+  const [photoURL] = await file.getSignedUrl({ action: 'read', expires: '2500-01-01' });
+  return { photoPath, photoURL };
+};
+
+// incoming：字串陣列（新圖=data URL、既有=先前存的 signed URL）→ { photos:[url], photoPaths:[path] }
+const applyPhotosPersistence = async ({ incoming, existing, ownerUid, recordId }) => {
+  const incomingPhotos = (Array.isArray(incoming) ? incoming : []).slice(0, MAX_PHOTOS);
+  const existingPhotos = Array.isArray(existing?.photos) ? existing.photos : [];
+  const existingPaths = Array.isArray(existing?.photoPaths) ? existing.photoPaths : [];
+  const urlToPath = new Map();
+  existingPhotos.forEach((url, i) => {
+    if (url) urlToPath.set(url, existingPaths[i] || '');
+  });
+
+  const photos = [];
+  const photoPaths = [];
+  let bucket = null;
+  for (let i = 0; i < incomingPhotos.length; i += 1) {
+    const item = String(incomingPhotos[i] || '').trim();
+    if (!item) continue;
+    if (isDataUrlImage(item)) {
+      if (!bucket) bucket = getStorageBucket();
+      const uploaded = await uploadPhotoDataUrl(bucket, ownerUid, recordId, item, i);
+      photos.push(uploaded.photoURL);
+      photoPaths.push(uploaded.photoPath);
+    } else if (isHttpUrl(item) && urlToPath.has(item)) {
+      // 只允許沿用先前存過的 URL（擋任意外部網址 / SSRF）
+      photos.push(item);
+      photoPaths.push(urlToPath.get(item));
+    }
+    // 其他一律忽略
+  }
+  // 刪掉不再引用的舊圖
+  const keep = new Set(photoPaths);
+  const stale = existingPaths.filter((p) => p && !keep.has(p));
+  if (stale.length) {
+    if (!bucket) bucket = getStorageBucket();
+    for (const p of stale) await deleteStorageObject(bucket, p);
+  }
+  return { photos, photoPaths };
+};
+
 const matchRecordByKeywords = (record, filters) => {
   if (filters.status && record.status !== filters.status) return false;
   if (filters.company && normalizeEmail(record.companyName) !== '' &&
@@ -236,12 +324,6 @@ const upsertRecord = async (req, res, authUser, isAdmin) => {
     return res.status(400).json({ ok: false, message: 'Invalid formData' });
   }
 
-  try {
-    validateFormDataSize(incomingFormData);
-  } catch (error) {
-    return res.status(400).json({ ok: false, message: error?.message || 'Form data too large' });
-  }
-
   const nowIso = new Date().toISOString();
   const indexFields = deriveIndexFields(incomingFormData);
   let docRef;
@@ -273,6 +355,21 @@ const upsertRecord = async (req, res, authUser, isAdmin) => {
   const ownerEmail = normalizeEmail(existingData?.ownerEmail || authUser.email);
   const ownerName = existingData?.ownerName || authUser.name || '';
 
+  // 場地照片：data URL → 上傳 Storage；既有 URL → 沿用；被移除的 → 刪除。Firestore 只存短網址。
+  let normalizedFormData;
+  try {
+    const { photos, photoPaths } = await applyPhotosPersistence({
+      incoming: incomingFormData.photos,
+      existing: existingData?.formData || {},
+      ownerUid,
+      recordId: docRef.id,
+    });
+    normalizedFormData = { ...incomingFormData, photos, photoPaths };
+    validateFormDataSize(normalizedFormData);
+  } catch (error) {
+    return res.status(400).json({ ok: false, message: error?.message || '表單或照片處理失敗' });
+  }
+
   // 決定狀態：預設沿用/建為 draft；submit=true 時轉 submitted 並記錄送出時間與次數
   const prevStatus = existingData?.status && VALID_STATUSES.has(existingData.status)
     ? existingData.status
@@ -295,7 +392,7 @@ const upsertRecord = async (req, res, authUser, isAdmin) => {
     ownerName,
     ...indexFields,
     status,
-    formData: incomingFormData,
+    formData: normalizedFormData,
     updatedAt: nowIso,
     lastModifiedByUid: actor.uid,
     lastModifiedByEmail: actor.email,
@@ -414,6 +511,17 @@ const deleteRecord = async (req, res, authUser, isAdmin) => {
   }
   if (!canAccessRecord({ authUser, isAdmin, record: existing })) {
     return res.status(403).json({ ok: false, message: 'Forbidden' });
+  }
+
+  // 一併清掉 Storage 上的場地照片
+  const stalePhotoPaths = Array.isArray(existing?.formData?.photoPaths) ? existing.formData.photoPaths : [];
+  if (stalePhotoPaths.length) {
+    try {
+      const bucket = getStorageBucket();
+      for (const p of stalePhotoPaths) await deleteStorageObject(bucket, p);
+    } catch (error) {
+      // 清理失敗不擋刪除
+    }
   }
 
   await docRef.delete();

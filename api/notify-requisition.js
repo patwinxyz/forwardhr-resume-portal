@@ -94,8 +94,6 @@ const canAccess = ({ authUser, isAdmin, record }) => {
   );
 };
 
-const EMPLOYMENT_ID = 'employer';
-
 const sendTelegramMessage = async (token, chatId, text) => {
   const response = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
     method: 'POST',
@@ -168,7 +166,8 @@ export default async function handler(req, res) {
   const phone = fd.phone || '';
   const submittedAt = record.submittedAt || new Date().toISOString();
   const baseUrl = String(process.env.APP_BASE_URL || '').trim().replace(/\/$/, '');
-  const adminLink = baseUrl ? `${baseUrl}/${EMPLOYMENT_ID}/admin` : '';
+  // 統一後台在 /admin（招募需求為其中一個分頁）
+  const adminLink = baseUrl ? `${baseUrl}/admin` : '';
 
   const results = { telegram: null, email: null };
 

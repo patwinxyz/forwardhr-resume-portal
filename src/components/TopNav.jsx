@@ -5,6 +5,7 @@ const TopNav = ({
   isAdmin,
   isAdminRoute,
   isAdminAuditRoute,
+  adminTab,
   onNewDraft,
   onBackToAdminRecords,
   onLoadDrafts,
@@ -68,7 +69,7 @@ const TopNav = ({
             >
               回履歷列表
             </button>
-          ) : (
+          ) : adminTab === 'requisitions' ? null : (
             <>
               <button
                 onClick={onLoadDrafts}

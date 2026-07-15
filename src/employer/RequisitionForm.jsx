@@ -147,24 +147,52 @@ const RequisitionForm = ({ initial, editing = false, busy = false, onSaveDraft, 
     });
 
   const MAX_PHOTOS = 4;
-  const addPhotos = (fileList) => {
+  // 前端壓縮：最長邊縮到 1600px、輸出 JPEG，避免多張大圖撐爆 API 請求上限。
+  const compressImage = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('讀取失敗'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('圖片無效'));
+        img.onload = () => {
+          const MAX = 1600;
+          let { width, height } = img;
+          if (width > MAX || height > MAX) {
+            if (width >= height) { height = Math.round((height * MAX) / width); width = MAX; }
+            else { width = Math.round((width * MAX) / height); height = MAX; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+  const addPhotos = async (fileList) => {
     const files = Array.from(fileList || []);
     const room = MAX_PHOTOS - (data.photos?.length || 0);
-    files.slice(0, room).forEach((file) => {
-      if (!file.type || !file.type.startsWith('image/')) return;
-      if (file.size > 8 * 1024 * 1024) {
-        window.alert(`「${file.name}」超過 8MB，請壓縮後再上傳`);
-        return;
+    for (const file of files.slice(0, Math.max(0, room))) {
+      if (!file.type || !file.type.startsWith('image/')) continue;
+      if (file.type === 'image/svg+xml') {
+        window.alert('不支援 SVG，請上傳 JPG / PNG / WebP 照片');
+        continue;
       }
-      const reader = new FileReader();
-      reader.onload = () =>
+      try {
+        const durl = await compressImage(file);
         setData((d) => {
           const cur = Array.isArray(d.photos) ? d.photos : [];
           if (cur.length >= MAX_PHOTOS) return d;
-          return { ...d, photos: [...cur, String(reader.result)] };
+          return { ...d, photos: [...cur, durl] };
         });
-      reader.readAsDataURL(file);
-    });
+      } catch (e) {
+        window.alert(`「${file.name}」處理失敗，請換一張圖片`);
+      }
+    }
   };
   const removePhoto = (idx) => setData((d) => ({ ...d, photos: (d.photos || []).filter((_, i) => i !== idx) }));
 
@@ -429,7 +457,7 @@ const RequisitionForm = ({ initial, editing = false, busy = false, onSaveDraft, 
             </label>
           )}
         </div>
-        <p className="mt-2 text-xs text-gray-400">建議上傳環境、工作區、員工餐等照片，協助人選了解實際工作情境（單張 8MB 以內）。</p>
+        <p className="mt-2 text-xs text-gray-400">建議上傳環境、工作區、員工餐等照片，協助人選了解實際工作情境（系統會自動壓縮，最多 4 張）。</p>
       </SectionCard>
 
       {/* 6. 送出前確認 */}
@@ -442,7 +470,7 @@ const RequisitionForm = ({ initial, editing = false, busy = false, onSaveDraft, 
             className="form-checkbox h-5 w-5 mt-0.5 shrink-0 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
           />
           <span className="text-sm text-amber-900 leading-relaxed">
-            本公司確認以上招募需求內容屬實，並同意灃禾人力銀行為招募媒合作業處理與利用上述資料。送出後將以 Email 及 Telegram 通知灃禾招募團隊。
+            本公司確認以上招募需求內容屬實，並同意灃禾為招募媒合作業處理與利用上述資料。送出後將以 Email 及 Telegram 通知灃禾招募團隊。
           </span>
         </label>
 

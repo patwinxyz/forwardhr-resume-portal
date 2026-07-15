@@ -34,6 +34,8 @@ const VALID_STATUSES = new Set(['draft', 'submitted', 'open', 'closed']);
 const OWNER_EDITABLE_STATUSES = new Set(['draft', 'submitted']);
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024; // 每張照片上限 8MB
 const MAX_PHOTOS = 4; // 最多 4 張場地/工作照片
+// 允許的圖片格式（排除 SVG，避免夾帶 script 的作用內容）
+const ALLOWED_PHOTO_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/bmp']);
 
 const ADMIN_EMAILS = new Set(
   String(process.env.ADMIN_EMAILS || process.env.VITE_ADMIN_EMAILS || '')
@@ -179,6 +181,7 @@ const deleteStorageObject = async (bucket, path) => {
 
 const uploadPhotoDataUrl = async (bucket, ownerUid, recordId, dataUrl, idx) => {
   const { mimeType, base64Data } = parseImageDataUrl(dataUrl);
+  if (!ALLOWED_PHOTO_MIME.has(mimeType)) throw new Error('不支援的圖片格式（僅接受 JPG/PNG/WebP/GIF/BMP）');
   const buffer = Buffer.from(base64Data, 'base64');
   if (!buffer || buffer.length === 0) throw new Error('照片內容為空');
   if (buffer.length > MAX_PHOTO_BYTES) throw new Error('照片過大，請上傳 8MB 以下圖片');
@@ -511,6 +514,10 @@ const deleteRecord = async (req, res, authUser, isAdmin) => {
   }
   if (!canAccessRecord({ authUser, isAdmin, record: existing })) {
     return res.status(403).json({ ok: false, message: 'Forbidden' });
+  }
+  // 已由灃禾處理（open/closed）的需求，廠商不能自行刪除（比照編輯的 409 規則）
+  if (!isAdmin && !OWNER_EDITABLE_STATUSES.has(existing.status || 'draft')) {
+    return res.status(409).json({ ok: false, message: '此需求已由灃禾處理，無法自行刪除，請與灃禾聯繫。' });
   }
 
   // 一併清掉 Storage 上的場地照片

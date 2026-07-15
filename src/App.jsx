@@ -5,6 +5,7 @@ import AdminRecordPanel from './components/AdminRecordPanel';
 import AdminViewModal from './components/AdminViewModal';
 import EditMode from './components/EditMode';
 import EmployerApp from './EmployerApp';
+import RequisitionAdmin from './employer/RequisitionAdmin';
 import NoticeBanner from './components/NoticeBanner';
 import PreviewMode from './components/PreviewMode';
 import ResumeStyles from './components/ResumeStyles';
@@ -268,6 +269,7 @@ const ResumeBuilder = () => {
   const [currentDraftId, setCurrentDraftId] = useState('');
   const [selectedAdminRecordId, setSelectedAdminRecordId] = useState('');
   const [adminQuery, setAdminQuery] = useState('');
+  const [adminTab, setAdminTab] = useState('resumes'); // 統一後台分頁：resumes | requisitions
   const [isAdminDrawerOpen, setIsAdminDrawerOpen] = useState(false);
   const [auditLogs, setAuditLogs] = useState([]);
   const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false);
@@ -1606,6 +1608,7 @@ const ResumeBuilder = () => {
         isAdmin={isAdmin}
         isAdminRoute={isAdminRoute}
         isAdminAuditRoute={isAdminAuditRoute}
+        adminTab={adminTab}
         onNewDraft={createNewDraft}
         onBackToAdminRecords={goToAdminRecordsPage}
         onLoadDrafts={refreshAdminRecords}
@@ -1633,6 +1636,26 @@ const ResumeBuilder = () => {
             />
           ) : (
             <div className="space-y-6">
+              <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setAdminTab('resumes')}
+                  className={`px-4 py-2 -mb-px border-b-2 text-sm font-semibold whitespace-nowrap ${adminTab === 'resumes' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  履歷管理
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdminTab('requisitions')}
+                  className={`px-4 py-2 -mb-px border-b-2 text-sm font-semibold whitespace-nowrap ${adminTab === 'requisitions' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  招募需求管理
+                </button>
+              </div>
+              {adminTab === 'requisitions' ? (
+                <RequisitionAdmin authUser={authUser} showNotice={showNotice} />
+              ) : (
+                <>
               <AdminRecordPanel
                 query={adminQuery}
                 onQueryChange={handleAdminQueryChange}
@@ -1689,6 +1712,8 @@ const ResumeBuilder = () => {
                 data={viewingRecord}
                 onClose={() => setViewingRecord(null)}
               />
+                </>
+              )}
             </div>
           )
         ) : (

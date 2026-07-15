@@ -4,6 +4,7 @@ import AdminAuditLogPage from './components/AdminAuditLogPage';
 import AdminRecordPanel from './components/AdminRecordPanel';
 import AdminViewModal from './components/AdminViewModal';
 import EditMode from './components/EditMode';
+import EmployerApp from './EmployerApp';
 import NoticeBanner from './components/NoticeBanner';
 import PreviewMode from './components/PreviewMode';
 import ResumeStyles from './components/ResumeStyles';
@@ -1797,4 +1798,14 @@ const ResumeBuilder = () => {
     </div>
   );
 };
-export default ResumeBuilder;
+// 路由包一層：/employer* 走廠商招募需求（EmployerApp），其餘維持原本履歷系統（ResumeBuilder）。
+// 這樣 ResumeBuilder 在 /employer 完全不掛載，避免其管理員導向 / 履歷自動載入等 effect 干擾。
+const App = () => {
+  const path = typeof window !== 'undefined' ? window.location.pathname || '' : '';
+  if (/^\/employer(?:\/|$)/i.test(path)) {
+    return <EmployerApp />;
+  }
+  return <ResumeBuilder />;
+};
+
+export default App;
